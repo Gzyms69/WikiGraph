@@ -1,0 +1,19 @@
+=== TEST PARSER RESULTS ===
+Timestamp: 2025-12-17T12:55:45.575599
+Source file: plwiki-20251201-pages-articles-multistream.xml.bz2
+Processing time: 0.1 seconds
+
+📊 STATISTICS:
+Total articles scanned: 100
+Main namespace articles: 100
+Articles processed: 100
+Total links found: 3569
+Average links/article: 35.7
+Processing speed: 100.0 articles/sec
+
+💾 MEMORY USAGE:
+Peak memory: 0.02 GB
+Available at end: 16.2 GB
+
+✅ TEST COMPLETED SUCCESSFULLY
+Check sample_articles.json for sample data

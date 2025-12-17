@@ -1,0 +1,64 @@
+{
+  "timestamp": "2025-12-17T13:25:01.192461",
+  "stats": {
+    "pages_found": 100,
+    "main_namespace": 100,
+    "total_chars_read": 1755493,
+    "start_time": 1765974301.100546,
+    "peak_memory_mb": 0
+  },
+  "sample_articles": [
+    {
+      "title": "AWK",
+      "text_length": 19214,
+      "link_count": 45,
+      "sample_links": [
+        "1977",
+        "język skryptowy",
+        "programowanie proceduralne"
+      ]
+    },
+    {
+      "title": "Alergologia",
+      "text_length": 2406,
+      "link_count": 10,
+      "sample_links": [
+        "medycyna",
+        "leczenie",
+        "alergia"
+      ]
+    },
+    {
+      "title": "ASCII",
+      "text_length": 35911,
+      "link_count": 72,
+      "sample_links": [
+        "(3568) ASCII",
+        "Plik:ASCII full.svg",
+        "Plik:USASCII code chart.png"
+      ]
+    },
+    {
+      "title": "Atom",
+      "text_length": 109442,
+      "link_count": 224,
+      "sample_links": [
+        "hel (pierwiastek)",
+        "stan kwantowy",
+        "elektron"
+      ]
+    },
+    {
+      "title": "Aksjomat",
+      "text_length": 11755,
+      "link_count": 52,
+      "sample_links": [
+        "język grecki",
+        "Władysław Kopaliński",
+        "logika matematyczna"
+      ]
+    }
+  ],
+  "elapsed_seconds": 0.09068441390991211,
+  "articles_per_second": 1102.725327191751
+}
