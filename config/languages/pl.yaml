@@ -1,0 +1,68 @@
+# Polish Wikipedia Configuration
+language:
+  code: pl
+  name: Polish
+  local_name: Polski
+  iso_code: pl-PL
+
+wikipedia:
+  # The UNIQUE identifier from the XML <dbname> tag - MUST match exactly
+  dbname: plwiki
+
+  # Language-specific Wikipedia syntax
+  redirect_keywords:
+    - "#REDIRECT"
+    - "#PRZEKIERUJ"
+
+  disambiguation_markers:
+    - "{{disambig}}"
+    - "{{ujednoznacznienie}}"
+
+  stub_markers:
+    - "{{stub}}"
+    - "{{zalążek}}"
+
+  # LOCALIZED namespace prefixes (for filtering pages AND links)
+  namespace_prefixes:
+    category: ["Kategoria:", "Category:"]
+    file: ["Plik:", "File:", "Image:", "Grafika:"]
+    template: ["Szablon:", "Template:"]
+    wikipedia: ["Wikipedia:"]
+    portal: ["Portal:"]
+    help: ["Pomoc:", "Help:"]
+    mediawiki: ["MediaWiki:"]
+    user: ["User:", "Użytkownik:"]
+    talk: ["Talk:", "Dyskusja:"]
+    project: ["Project:", "Projekt:"]
+
+text_processing:
+  encoding: utf-8
+  has_spaces: true  # False for Chinese/Japanese/Thai
+  word_separator: " "
+
+  # For advanced search/text analysis
+  stopwords_path: "config/stopwords/pl.txt"  # Create this later
+  stemmer: "snowball"  # Options: snowball, porter, or none
+
+infobox:
+  # Polish-specific infobox template names (for extraction)
+  template_prefixes:
+    - "Infobox"
+    - "Infokarta"
+
+  # Parameter name mappings (Polish → English for consistency)
+  parameter_map:
+    "urodzony": "born"
+    "zmarł": "died"
+    "lokalizacja": "location"
+    "powierzchnia": "area"
+    "populacja": "population"
+
+ui:
+  # For future frontend localization
+  search_placeholder: "Szukaj w polskiej Wikipedii..."
+  language_name: "Polski"
+  interface_translations:
+    show_connections: "Pokaż połączenia"
+    related_articles: "Powiązane artykuły"
+    categories: "Kategorie"

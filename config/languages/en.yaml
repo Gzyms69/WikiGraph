@@ -1,0 +1,54 @@
+# English Wikipedia Configuration
+language:
+  code: en
+  name: English
+  local_name: English
+  iso_code: en-US
+
+wikipedia:
+  dbname: enwiki
+
+  redirect_keywords:
+    - "#REDIRECT"
+
+  disambiguation_markers:
+    - "{{disambiguation}}"
+    - "{{disambig}}"
+
+  stub_markers:
+    - "{{stub}}"
+    - "{{expand}}"
+
+  namespace_prefixes:
+    category: ["Category:"]
+    file: ["File:", "Image:"]
+    template: ["Template:"]
+    wikipedia: ["Wikipedia:"]
+    portal: ["Portal:"]
+    help: ["Help:"]
+    mediawiki: ["MediaWiki:"]
+    user: ["User:"]
+    talk: ["Talk:"]
+    project: ["Project:"]
+
+text_processing:
+  encoding: utf-8
+  has_spaces: true
+  word_separator: " "
+
+  stopwords_path: "config/stopwords/en.txt"
+  stemmer: "snowball"
+
+infobox:
+  template_prefixes:
+    - "Infobox"
+
+  parameter_map: {}  # English is canonical, minimal mapping needed
+
+ui:
+  search_placeholder: "Search English Wikipedia..."
+  language_name: "English"
+  interface_translations:
+    show_connections: "Show connections"
+    related_articles: "Related articles"
+    categories: "Categories"

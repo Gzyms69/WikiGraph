@@ -15,6 +15,13 @@ import json
 from pathlib import Path
 from datetime import datetime
 
+# ANSI color codes for terminal output
+GREEN = '\033[92m'
+YELLOW = '\033[93m'
+RED = '\033[91m'
+BLUE = '\033[94m'
+RESET = '\033[0m'
+
 def monitor_memory(max_gb=2):
     """Dummy memory check - return True"""
     return True
@@ -39,12 +46,12 @@ def extract_links_safe(wikitext, max_links=50):
             if len(links) >= max_links:
                 break
     except Exception as e:
-        print(f"⚠️ Link extraction error: {e}")
+        print(f"{YELLOW}[WARNING] Link extraction error: {e}{RESET}")
 
     return links
 
 def main():
-    print("🧪 ULTRA-SAFE PARSER TEST - 100 ARTICLES")
+    print(f"{GREEN}==> ULTRA-SAFE PARSER TEST - 100 ARTICLES{RESET}")
     print("=" * 50)
 
     # Paths - KEEP ON /mnt/c/ FOR THIS TEST (no copy yet)
@@ -52,16 +59,16 @@ def main():
     xml_files = list(source_dir.glob("plwiki-*-articles-*.xml.bz2"))
 
     if not xml_files:
-        print("❌ No XML files found!")
+        print(f"{RED}[ERROR] No XML files found!{RESET}")
         sys.exit(1)
 
     xml_path = xml_files[0]
     output_dir = Path("~/WikiGraph/output").expanduser()
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    print(f"📁 Source: {xml_path}")
-    print(f"📁 Output: {output_dir}")
-    print("💾 Available RAM: Monitoring disabled (no psutil)")
+    print(f"{BLUE}[FILE] Source: {xml_path}{RESET}")
+    print(f"{BLUE}[FILE] Output: {output_dir}{RESET}")
+    print(f"{BLUE}[INFO] Available RAM: Monitoring disabled (no psutil){RESET}")
     # Statistics
     stats = {
         "total_articles": 0,
@@ -79,10 +86,10 @@ def main():
     sample_data = []
 
     try:
-        print("\n⏳ Opening XML file (this may take a moment)...")
+        print(f"\n{YELLOW}[PROCESSING] Opening XML file (this may take a moment)...{RESET}")
 
         with bz2.open(xml_path, 'rt', encoding='utf-8', errors='ignore') as f:
-            print("✅ File opened successfully")
+            print(f"{GREEN}[SUCCESS] File opened successfully{RESET}")
 
             in_page = False
             page_content = []
@@ -161,12 +168,12 @@ def main():
 
                         # Check if we have enough
                         if stats["articles_processed"] >= 100:
-                            print(f"\n✅ Reached target: 100 articles processed")
+                            print(f"\n{GREEN}[SUCCESS] Reached target: 100 articles processed{RESET}")
                             break
 
                 # Safety: stop after reading too much
                 if line_num > 1000000:  # ~1M lines max
-                    print("⚠️ Safety limit reached (1M lines)")
+                    print(f"{YELLOW}[WARNING] Safety limit reached (1M lines){RESET}")
                     break
 
         # Save results
@@ -202,7 +209,7 @@ Check {sample_file.name} for sample data
         print(summary)
 
         # Quick validation
-        print("\n🔍 SAMPLE VALIDATION:")
+        print(f"\n{YELLOW}[VALIDATION] SAMPLE VALIDATION:{RESET}")
         for i, article in enumerate(sample_data[:3]):
             print(f"  {i+1}. {article['title']}")
             print(f"     Links: {article['link_count']}")
@@ -211,7 +218,7 @@ Check {sample_file.name} for sample data
         return True
 
     except Exception as e:
-        print(f"\n❌ TEST FAILED: {e}")
+        print(f"\n{RED}[ERROR] TEST FAILED: {e}{RESET}")
         import traceback
         traceback.print_exc()
         return False
