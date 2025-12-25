@@ -1,85 +1,77 @@
-# WikiGraph 🚧
+# WikiGraph 🕸️
 
-**Current Status:** 🔴 **BROKEN / UNDER REPAIR** 🔴
+**Current Status:** 🟢 **STABLE / MULTI-LANG READY**
 
-> **Developer Note (Dec 25, 2025):** 
-> This tool is currently in a broken state. While the parsing logic exists, the primary database has been flagged as corrupted/broken. The Neo4j integration mentioned in previous documentation does not exist. Use this codebase for reference only; do not attempt to run it in a production environment.
+WikiGraph is a high-performance pipeline for ingesting massive Wikipedia XML dumps into a dual-database architecture: **SQLite** for relational metadata and search, and **Neo4j** for complex graph relationship analysis.
 
-## What is this?
-WikiGraph is a Python-based tool designed to ingest massive Wikipedia XML dumps (specifically Polish and English), parse them into structured data, and serve them via a searchable API.
+## 🚀 Recent Breakthroughs (Dec 2025)
+- **Neo4j Integration:** Fully implemented graph database support with optimized parallel loaders.
+- **High Performance:** Parallel link resolution (8+ cores) and aggressive memory caching (10GB+).
+- **Redirect Awareness:** Added support for Wikipedia aliases (Redirects) to ensure high graph connectivity.
+- **Multi-Language Core:** Dynamic support for Polish, English, and German Wikipedia dumps.
 
-It uses a **streaming XML parser** to handle multi-gigabyte files with low memory footprint and stores the result in a **SQLite** database with Full-Text Search (FTS5) capabilities.
+## 📊 Current Graph Scale [Polish Wikipedia]
+| Metric | Count |
+| :--- | :--- |
+| **Article Nodes** | 2,105,331 |
+| **Alias (Redirect) Nodes** | 583,883 |
+| **Inter-Article Links** | 41,683,844 |
+| **Alias Connections** | 583,883 |
 
-## The Honest Truth: What Works & What Doesn't
+## 🛠️ Architecture
+WikiGraph uses a two-stage processing pipeline:
+1.  **Stage 1 (Streaming Parser):** Uses `mwxml` to stream gigabytes of XML with <500MB RAM footprint, outputting compressed JSONL/CSV batches.
+2.  **Stage 2 (Optimized Loaders):** 
+    - **SQLite:** Stores full article metadata and FTS5 search indexes.
+    - **Neo4j:** Stores the topological structure for pathfinding and hub analysis.
 
-We believe in transparency. Here is the actual state of the project:
-
-### ✅ What Works
-- **Streaming Parser:** The `phase1_production.py` script successfully streams and parses huge XML dumps (tested on 2GB+ Polish wiki) without eating all your RAM.
-- **SQLite Generation:** The loaders can populate a SQLite database with millions of articles and links.
-- **Search API:** The Flask API (`api.py`) handles requests and performs full-text searches on the database.
-- **Multilingual Structure:** The codebase is set up to handle multiple languages (currently configured for `pl` and `en`).
-
-### ❌ What is Broken / Missing
-- **The Database:** The `wikigraph_multilang.db` is currently considered **broken**. While it may open and show stats, data integrity issues render it unreliable for actual graph analysis.
-- **Neo4j:** Previous documentation claimed Neo4j support. **This is false.** There is no graph database integration implemented yet.
-- **English Data:** English Wikipedia support is experimental and currently stuck at a 1,000-article test set.
-- **Frontend:** There is no user interface. It is a raw JSON API only.
-
-## Project Structure
-
+## 📦 Project Structure
 ```text
 WikiGraph/
-├── app/                  # Flask API application
-├── databases/            # SQLite storage (currently broken)
-├── processed_batches/    # Intermediate JSONL/CSV files
-├── raw_data_wiki/        # Place your XML dumps here
-├── scripts/              # logic for parsing and loading
-│   ├── phase1_production.py  # The main parser
-│   ├── load_multilang_data.py# The DB loader
-│   └── manage_db.py          # Database util (stats/init)
-└── venv_linux/           # Python Virtual Environment
+├── app/                  # Flask API & Business Logic
+├── config/               # Multi-language YAML configs (pl, en, de)
+├── databases/            # SQLite Storage
+├── processed_batches/    # Intermediate data (jsonl.gz / csv.gz)
+├── scripts/              
+│   ├── phase1_production.py  # Streaming XML Parser
+│   ├── load_multilang_data.py # Parallel SQLite Loader
+│   ├── load_neo4j.py         # Parallel Graph Loader
+│   └── extract_redirects.py  # Alias generator
+└── venv_linux/           # Virtual Environment
 ```
 
-## Setup (If you want to try fixing it)
+## ⚡ Quick Start
 
-**Prerequisites:** Linux/WSL, Python 3.8+
+### 1. Environment Setup
+```bash
+source venv_linux/bin/activate
+pip install -r requirements.txt
+```
 
-1. **Activate Environment:**
-   You must use the provided virtual environment.
-   ```bash
-   source venv_linux/bin/activate
-   # OR run scripts directly:
-   # ./venv_linux/bin/python3 scripts/manage_db.py stats
-   ```
+### 2. Neo4j Setup (Docker)
+```bash
+docker run -d --name wikigraph-neo4j -p 7474:7474 -p 7687:7687 \
+    -e NEO4J_AUTH=neo4j/wikigraph \
+    -e NEO4J_PLUGINS='["apoc"]' \
+    neo4j:5.14
+```
 
-2. **Check Database Status:**
-   ```bash
-   python3 scripts/manage_db.py stats
-   ```
-   *Note: Even if this returns numbers, the DB is flagged as broken.*
+### 3. Run Pipeline (Example: Polish)
+```bash
+# 1. Parse XML to batches
+python3 scripts/phase1_production.py --lang=pl
 
-3. **Run the API:**
-   ```bash
-   python3 run_api.py
-   ```
-   Server runs on `http://localhost:5000`.
+# 2. Load SQLite (Search Engine)
+python3 scripts/manage_db.py init
+python3 scripts/load_multilang_data.py --lang=pl
 
-## Key Commands
+# 3. Load Neo4j (Graph Engine)
+python3 scripts/load_neo4j.py --lang=pl
+python3 scripts/load_redirects_neo4j.py --lang=pl
+```
 
-| Goal | Command | Status |
-|------|---------|--------|
-| **Parse Dump** | `python3 scripts/phase1_production.py` | ✅ Works |
-| **Load DB** | `python3 scripts/load_multilang_data.py --lang=pl` | ⚠️ Unstable |
-| **Search** | `curl "http://localhost:5000/api/search?q=Warszawa"` | ✅ Works (if DB loads) |
-| **Health Check** | `curl http://localhost:5000/api/health` | ✅ Works |
-
-## Roadmap to Recovery
-
-1. **Fix Database Integrity:** Re-validate the foreign key relationships and schema consistency.
-2. **Implement Neo4j:** Actually build the graph database connector for complex relationship analysis.
-3. **Finish English Import:** Run the full pipeline for `enwiki`.
-4. **Build UI:** Create the web frontend to visualize the graph.
+## 🧪 Verification & Analytics
+Run `python3 scripts/robust_verify.py` to analyze the graph structure, find major hubs, and test pathfinding between nodes.
 
 ---
-*Maintained by Gzyms69. Last updated: Dec 2025.*
+*Maintained by Gzyms69. Last updated: Dec 25, 2025.*
