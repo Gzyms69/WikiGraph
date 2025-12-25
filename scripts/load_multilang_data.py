@@ -17,9 +17,18 @@ import csv
 import sys
 import glob
 from pathlib import Path
+from multiprocessing import Pool, cpu_count
+from typing import List, Tuple, Dict
+from functools import partial
 
 # Add config directory to path for imports
 sys.path.append(str(Path(__file__).parent.parent))
+
+try:
+    from tqdm import tqdm
+except ImportError:
+    print("Warning: tqdm not found. Progress bar will be disabled.")
+    tqdm = None
 
 
 def setup_database_optimizations(cursor):
@@ -27,7 +36,7 @@ def setup_database_optimizations(cursor):
     # HIGH-PERFORMANCE BULK LOAD SETTINGS (temporarily unsafe)
     cursor.execute("PRAGMA journal_mode = OFF;")      # Disable journaling for speed
     cursor.execute("PRAGMA synchronous = OFF;")       # OS handles sync timing
-    cursor.execute("PRAGMA cache_size = -2000000;")   # Use 2GB RAM for cache
+    cursor.execute("PRAGMA cache_size = -4000000;")   # Use 4GB RAM for cache (increased as requested)
     cursor.execute("PRAGMA temp_store = MEMORY;")     # Temp tables in RAM
     cursor.execute("PRAGMA locking_mode = EXCLUSIVE;") # Exclusive lock for process
 
@@ -163,82 +172,126 @@ def load_articles(cursor, data_dir: Path, title_to_id: dict):
     return article_count
 
 
-def load_links(cursor, data_dir: Path, title_to_id: dict, lang_code: str):
+def process_link_file(file_path: str, title_to_id: Dict[str, int], lang_code: str) -> Tuple[List[Tuple], int, str]:
     """
-    Load links with source resolution and batch debugging info.
+    Process a single link file and return resolved links, unresolved count, and filename.
+    
+    Args:
+        file_path: Path to the link file to process
+        title_to_id: Title to ID mapping dictionary
+        lang_code: Language code for the data
+        
+    Returns:
+        Tuple of (resolved_links, unresolved_count, filename)
+    """
+    file_path_obj = Path(file_path)
+    
+    # Extract batch number from filename for debugging
+    try:
+        batch_num = int(file_path_obj.stem.split('_')[-1])
+    except (ValueError, IndexError):
+        batch_num = 0  # Fallback
+
+    resolved_links = []
+    unresolved_count = 0
+
+    with gzip.open(file_path, 'rt', encoding='utf-8', newline='') as f:
+        reader = csv.reader(f)
+
+        for row in reader:
+            if len(row) < 2:
+                continue  # Skip malformed rows
+
+            source_title = row[0]
+            target_title = row[1]
+
+            # Resolve source title to ID
+            source_id = title_to_id.get(source_title)
+            if source_id is None:
+                unresolved_count += 1
+                continue  # Skip links from non-existent articles
+
+            # Add to batch: (source_id, target_title, lang_code, batch_num)
+            resolved_links.append((source_id, target_title, lang_code, batch_num))
+
+    return resolved_links, unresolved_count, str(file_path_obj)
+
+
+def load_links_parallel(cursor, data_dir: Path, title_to_id: dict, lang_code: str):
+    """
+    Load links with source resolution using multiprocessing.
 
     Args:
         cursor: Database cursor
         data_dir: Directory containing processed_batches_pl
         title_to_id: Pre-built title to ID mapping
+        lang_code: Language code for the data
 
     Returns:
         Tuple of (links_loaded, unresolved_sources)
     """
-    print("Loading links with source resolution...")
+    print("Loading links with source resolution using multiprocessing...")
 
     links_files = sorted(glob.glob(str(data_dir / 'links_batch_*.csv.gz')))
     if not links_files:
         raise FileNotFoundError(f"No links files found in {data_dir}")
 
-    links_count = 0
-    unresolved_sources = 0
+    print(f"  Found {len(links_files)} link files to process with {cpu_count()} CPU cores")
 
-    for file_path in links_files:
-        file_path_obj = Path(file_path)
-        print(f"  Processing {file_path_obj.name}...")
+    # Create partial function with fixed arguments to pass to worker processes
+    process_func = partial(process_link_file, title_to_id=title_to_id, lang_code=lang_code)
 
-        # Extract batch number from filename for debugging
-        try:
-            batch_num = int(file_path_obj.stem.split('_')[-1])
-        except (ValueError, IndexError):
-            batch_num = 0  # Fallback
+    # Use multiprocessing to process link files in parallel
+    total_links = 0
+    total_unresolved = 0
+    processed_files = 0
+    
+    # Use tqdm for progress if available
+    progress_bar = None
+    if tqdm:
+        progress_bar = tqdm(total=len(links_files), desc="Processing link files", unit="file")
 
-        with gzip.open(file_path, 'rt', encoding='utf-8', newline='') as f:
-            reader = csv.reader(f)
-            batch_links = []
-
-            for row in reader:
-                if len(row) != 2:
-                    continue  # Skip malformed rows
-
-                source_title, target_title = row
-
-                # Resolve source title to ID
-                source_id = title_to_id.get(source_title)
-                if source_id is None:
-                    unresolved_sources += 1
-                    continue  # Skip links from non-existent articles
-
-                # Add to batch: (source_id, target_title, lang_code, batch_num)
-                batch_links.append((source_id, target_title, lang_code, batch_num))
-
-                # Commit in batches for performance
-                if len(batch_links) >= 50000:
-                    cursor.executemany('''
-                        INSERT INTO links (source_id, target_title, language, batch_num)
-                        VALUES (?, ?, ?, ?)
-                    ''', batch_links)
-                    links_count += len(batch_links)
-                    batch_links = []
-
-            # Insert remaining links from this file
-            if batch_links:
+    # Process files in parallel
+    with Pool(processes=cpu_count()) as pool:
+        # Process all link files in parallel
+        results = pool.starmap(process_func, [(f,) for f in links_files])
+        
+        # Collect and insert results
+        for resolved_links, unresolved_count, file_path in results:
+            if resolved_links:
                 cursor.executemany('''
                     INSERT INTO links (source_id, target_title, language, batch_num)
                     VALUES (?, ?, ?, ?)
-                ''', batch_links)
-                links_count += len(batch_links)
+                ''', resolved_links)
+                total_links += len(resolved_links)
 
-        # Commit after each file
-        cursor.connection.commit()
-        print(f"    {links_count:,} total links processed")
+            total_unresolved += unresolved_count
+            processed_files += 1
+            
+            # Update progress bar if available
+            if progress_bar:
+                progress_bar.update(1)
+                progress_bar.set_postfix({
+                    'Links': f'{total_links:,}',
+                    'Unresolved': f'{total_unresolved:,}'
+                })
+            else:
+                # Print progress every 10 files processed
+                if processed_files % 10 == 0 or processed_files == len(links_files):
+                    print(f"    Processed {processed_files}/{len(links_files)} files, "
+                          f"links: {total_links:,}, unresolved: {total_unresolved:,}")
 
-    print(f"✓ Loaded {links_count:,} links")
-    if unresolved_sources > 0:
-        print(f"⚠️  Skipped {unresolved_sources:,} links (source article not found)")
+    # Commit all changes
+    cursor.connection.commit()
+    
+    if progress_bar:
+        progress_bar.close()
 
-    return links_count, unresolved_sources
+    print(f"✓ Loaded {total_links:,} links")
+    if total_unresolved > 0:
+        print(f"⚠️  Skipped {total_unresolved:,} links (source article not found)")
+
+    return total_links, total_unresolved
 
 
 def update_metadata(cursor, article_count: int, links_count: int, lang_code: str):
@@ -344,8 +397,8 @@ def main():
         # Phase 1: Load articles
         article_count = load_articles(cursor, data_dir, title_to_id)
 
-        # Phase 2: Load links
-        links_count, unresolved = load_links(cursor, data_dir, title_to_id, args.lang)
+        # Phase 2: Load links using multiprocessing
+        links_count, unresolved = load_links_parallel(cursor, data_dir, title_to_id, args.lang)
 
         # Recreate indexes and restore safety settings
         recreate_indexes_and_safety(cursor)
