@@ -30,8 +30,8 @@ class ProductionParser(EnhancedParser):
 
     def __init__(self, lang_code='pl', output_dir=None):
         super().__init__(lang_code=lang_code)
-        self.batch_size = 2000  # Optimized for speed (tested safe at 44MB/1000 articles)
-        self.checkpoint_interval = 10000  # Save checkpoint every 10K articles
+        self.batch_size = 20000  # Increased for English Wiki (avoids 10k+ small files)
+        self.checkpoint_interval = 20000  # Save checkpoint every batch
         
         # Override output dir if provided
         if output_dir:

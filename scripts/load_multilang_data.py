@@ -36,7 +36,7 @@ def setup_database_optimizations(cursor):
     # HIGH-PERFORMANCE BULK LOAD SETTINGS (temporarily unsafe)
     cursor.execute("PRAGMA journal_mode = OFF;")      # Disable journaling for speed
     cursor.execute("PRAGMA synchronous = OFF;")       # OS handles sync timing
-    cursor.execute("PRAGMA cache_size = -4000000;")   # Use 4GB RAM for cache (increased as requested)
+    cursor.execute("PRAGMA cache_size = -10000000;")  # Use 10GB RAM for cache (aggressive for 19GB system)
     cursor.execute("PRAGMA temp_store = MEMORY;")     # Temp tables in RAM
     cursor.execute("PRAGMA locking_mode = EXCLUSIVE;") # Exclusive lock for process
 
