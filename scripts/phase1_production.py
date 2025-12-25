@@ -6,6 +6,8 @@ Based on successful memory tests (44MB for 1000 articles).
 """
 
 import sys
+import argparse
+import glob
 from pathlib import Path
 import json
 from datetime import datetime
@@ -14,6 +16,7 @@ from datetime import datetime
 sys.path.append(str(Path(__file__).parent))
 
 from phase1_enhanced import EnhancedParser
+from config.language_manager import LanguageManager
 
 # ANSI color codes for terminal output
 GREEN = '\033[92m'
@@ -25,22 +28,27 @@ RESET = '\033[0m'
 class ProductionParser(EnhancedParser):
     """Production parser optimized for full dump processing."""
 
-    def __init__(self):
-        super().__init__()
+    def __init__(self, lang_code='pl', output_dir=None):
+        super().__init__(lang_code=lang_code)
         self.batch_size = 2000  # Optimized for speed (tested safe at 44MB/1000 articles)
         self.checkpoint_interval = 10000  # Save checkpoint every 10K articles
+        
+        # Override output dir if provided
+        if output_dir:
+            self.output_dir = output_dir
 
-    def run_full_dump(self):
+    def run_full_dump(self, dump_path):
         """Process entire Wikipedia dump with production settings."""
+        lang_name = LanguageManager.get_language_info(self.lang_code)['name'].upper()
+        
         print("="*70)
-        print("POLISH WIKIPEDIA - FULL PRODUCTION PROCESSING")
+        print(f"{lang_name} WIKIPEDIA - FULL PRODUCTION PROCESSING")
         print("="*70)
         print(f"Batch size: {self.batch_size:,} articles")
-        print(f"Estimated total articles: ~2,000,000")
-        print(f"Estimated total links: ~180,000,000")
-        print(f"Estimated batches: ~1,000")
-        print(f"Estimated time: 3-4 hours")
+        # Estimates are rough; could be made language-specific if needed
+        print(f"Estimated time: Depends on dump size")
         print(f"Memory limit: 19GB (WSL)")
+        print(f"Dump file: {dump_path}")
         print(f"Output directory: {self.output_dir}")
         print("="*70)
 
@@ -57,7 +65,6 @@ class ProductionParser(EnhancedParser):
         start_time = datetime.now()
 
         try:
-            dump_path = Path('/mnt/c/Users/PC/WikiGraph/raw_data_wiki/plwiki-20251201-pages-articles-multistream.xml.bz2')
             self.process_dump(dump_path, self.output_dir, max_articles=None)  # Process all
 
             # Final statistics
@@ -66,10 +73,11 @@ class ProductionParser(EnhancedParser):
 
             print(f"\n{GREEN}{'='*70}{RESET}")
             print(f"{GREEN}PROCESSING COMPLETE!{RESET}")
-            print(f"{'='*70}{RESET}")
+            print(f"{RESET}{'='*70}{RESET}")
             print(f"Duration: {duration}")
             print(f"Articles processed: {self.articles_processed:,}")
             print(f"Redirects found: {self.redirects_found:,}")
+            # Use glob on the specific output directory
             print(f"Batches created: {len(list(self.output_dir.glob('articles_batch_*.jsonl.gz')))}")
             print(f"Peak memory: {self.check_memory():.1f}MB")
             print(f"Output location: {self.output_dir}")
@@ -82,23 +90,61 @@ class ProductionParser(EnhancedParser):
             print(f"\n{RED}[FATAL ERROR] {e}{RESET}")
             sys.exit(1)
 
+def find_dump_file(base_dir, lang_code):
+    """Find the latest dump file for the given language."""
+    try:
+        dbname = LanguageManager.get_dbname(lang_code)
+    except Exception:
+        # Fallback if config fails, though get_dbname should raise
+        dbname = f"{lang_code}wiki"
+
+    raw_dir = base_dir / 'raw_data_wiki'
+    pattern = f"{dbname}-*-pages-articles-multistream.xml.bz2"
+    
+    files = sorted(raw_dir.glob(pattern), reverse=True)
+    
+    if not files:
+        return None
+    
+    return files[0]
+
 def main():
     """Production parser entry point."""
-    base_dir = Path('/mnt/c/Users/PC/WikiGraph')
-    dump_path = base_dir / 'raw_data_wiki' / 'plwiki-20251201-pages-articles-multistream.xml.bz2'
-
-    if not dump_path.exists():
-        print(f"{RED}[ERROR] Dump file not found: {dump_path}{RESET}")
+    parser = argparse.ArgumentParser(description='WikiGraph Production Parser')
+    parser.add_argument('--lang', type=str, default='pl',
+                       help='Language code (e.g., pl, en) (default: pl)')
+    
+    args = parser.parse_args()
+    
+    # Validate language
+    try:
+        LanguageManager.get_language_info(args.lang)
+    except Exception as e:
+        print(f"{RED}[ERROR] Invalid language '{args.lang}': {e}{RESET}")
         sys.exit(1)
 
-    # Set output directory before creating parser
-    output_dir = base_dir / 'processed_batches'
+    base_dir = Path('/mnt/c/Users/PC/WikiGraph')
+    
+    # Find dump file
+    dump_path = find_dump_file(base_dir, args.lang)
+    if not dump_path or not dump_path.exists():
+        # Try finding generic pattern if specific dbname not found
+        fallback_pattern = f"{args.lang}wiki-*-pages-articles-multistream.xml.bz2"
+        files = sorted((base_dir / 'raw_data_wiki').glob(fallback_pattern), reverse=True)
+        if files:
+            dump_path = files[0]
+        else:
+            print(f"{RED}[ERROR] Dump file not found for language '{args.lang}' in {base_dir / 'raw_data_wiki'}{RESET}")
+            print(f"Expected pattern: {LanguageManager.get_dbname(args.lang)}-*-pages-articles-multistream.xml.bz2")
+            sys.exit(1)
+
+    # Set output directory
+    output_dir = base_dir / f'processed_batches_{args.lang}'
     output_dir.mkdir(exist_ok=True)
 
-    parser = ProductionParser()
-    # Set the output directory manually since it's not in __init__
-    parser.output_dir = output_dir
-    parser.run_full_dump()
+    # Initialize and run
+    parser = ProductionParser(lang_code=args.lang, output_dir=output_dir)
+    parser.run_full_dump(dump_path)
 
 if __name__ == "__main__":
     main()
