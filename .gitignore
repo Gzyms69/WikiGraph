@@ -1,6 +1,12 @@
-# Raw data (large files)
+# Data directories (large files)
+data/
 raw_data_wiki/
 backup/
+backups/
+output/
+processed_batches/
+processed_batches_*/
+databases/
 
 # Python virtual environments
 venv/
@@ -27,13 +33,10 @@ coverage.xml
 .pytest_cache
 .hypothesis
 
-# Output and processed data
-output/
-processed_batches/
-processed_batches_*/
-databases/
+# Logs
 logs/
-backups/
+*.log
+wget-log*
 
 # IDE files
 .vscode/

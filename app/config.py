@@ -10,7 +10,7 @@ class Config:
 
     # Project structure
     ROOT_DIR = Path(__file__).parent.parent
-    DATABASES_DIR = ROOT_DIR / 'databases'
+    DATABASES_DIR = ROOT_DIR / 'data' / 'db'
     
     # Database path
     DATABASE_PATH = DATABASES_DIR / 'wikigraph_multilang.db'
@@ -27,4 +27,4 @@ class Config:
     DEBUG = True
 
     # CORS
-    CORS_ORIGINS = ['*']  # Configure appropriately for production
+    CORS_ORIGINS = ['*']

@@ -1,0 +1,52 @@
+# German Wikipedia Configuration
+language:
+  code: de
+  name: German
+  local_name: Deutsch
+  iso_code: de-DE
+
+wikipedia:
+  # The UNIQUE identifier from the XML <dbname> tag - MUST match exactly
+  dbname: dewiki
+
+  # Language-specific Wikipedia syntax
+  redirect_keywords:
+    - "#WEITERLEITUNG"
+    - "#REDIRECT"
+
+  disambiguation_markers:
+    - "{{Begriffsklärung}}"
+    - "{{disambig}}"
+
+  stub_markers:
+    - "{{Stub}}"
+    - "{{kurz}}"
+
+  # LOCALIZED namespace prefixes (for filtering pages AND links)
+  namespace_prefixes:
+    category: ["Kategorie:", "Category:"]
+    file: ["Datei:", "File:", "Bild:", "Image:"]
+    template: ["Vorlage:", "Template:"]
+    wikipedia: ["Wikipedia:"]
+    portal: ["Portal:"]
+    help: ["Hilfe:", "Help:"]
+
+text_processing:
+  encoding: utf-8
+  has_spaces: true  # False for Chinese/Japanese/Thai
+  word_separator: " "
+
+  # For advanced search/text analysis
+  stemmer: "snowball"  # Options: snowball, porter, or none
+
+infobox:
+  # German-specific infobox template names (for extraction)
+  template_prefixes:
+    - "Infobox"
+
+text_cleanup:
+  file_patterns:
+    - "Datei"
+    - "File"
+    - "Bild"
+    - "Image"

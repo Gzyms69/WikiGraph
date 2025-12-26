@@ -1,44 +1,43 @@
-# WikiGraph 🕸️
+# WikiGraph 🌐
 
-**Current Status:** 🟢 **STABLE / MULTI-LANG READY**
+**High-Performance Wikipedia Graph Database Pipeline**
 
-WikiGraph is a high-performance pipeline for ingesting massive Wikipedia XML dumps into a dual-database architecture: **SQLite** for relational metadata and search, and **Neo4j** for complex graph relationship analysis.
+WikiGraph is a production-ready system for transforming massive Wikipedia XML dumps into a dual-database architecture: **SQLite** for metadata and search, and **Neo4j** for complex graph analysis and topology.
 
-## 🚀 Recent Breakthroughs (Dec 2025)
-- **Neo4j Integration:** Fully implemented graph database support with optimized parallel loaders.
-- **High Performance:** Parallel link resolution (8+ cores) and aggressive memory caching (10GB+).
-- **Redirect Awareness:** Added support for Wikipedia aliases (Redirects) to ensure high graph connectivity.
-- **Multi-Language Core:** Dynamic support for Polish, English, and German Wikipedia dumps.
+## 🚀 Features
 
-## 📊 Current Graph Scale [Polish Wikipedia]
-| Metric | Count |
-| :--- | :--- |
-| **Article Nodes** | 2,105,331 |
-| **Alias (Redirect) Nodes** | 583,883 |
-| **Inter-Article Links** | 41,683,844 |
-| **Alias Connections** | 583,883 |
+- **Massive Scale Ingestion**: Handles 25GB+ XML dumps using streaming parallel parsing.
+- **Hardware Optimized**: Utilizes multi-core CPUs and aggressive I/O smoothing to prevent system lockups.
+- **Memory Hardened**: Zero-RAM link resolution ensures stability on consumer hardware (16GB+ RAM).
+- **Multi-Language Core**: Dynamic support for Polish, German, and English datasets.
+- **Graph Intelligence**: Fully implements Wikipedia Redirects/Aliases for a highly connected knowledge graph.
 
-## 🛠️ Architecture
-WikiGraph uses a two-stage processing pipeline:
-1.  **Stage 1 (Streaming Parser):** Uses `mwxml` to stream gigabytes of XML with <500MB RAM footprint, outputting compressed JSONL/CSV batches.
-2.  **Stage 2 (Optimized Loaders):** 
-    - **SQLite:** Stores full article metadata and FTS5 search indexes.
-    - **Neo4j:** Stores the topological structure for pathfinding and hub analysis.
+## 🏗️ Project Structure
 
-## 📦 Project Structure
 ```text
 WikiGraph/
-├── app/                  # Flask API & Business Logic
-├── config/               # Multi-language YAML configs (pl, en, de)
-├── databases/            # SQLite Storage
-├── processed_batches/    # Intermediate data (jsonl.gz / csv.gz)
-├── scripts/              
-│   ├── phase1_production.py  # Streaming XML Parser
-│   ├── load_multilang_data.py # Parallel SQLite Loader
-│   ├── load_neo4j.py         # Parallel Graph Loader
-│   └── extract_redirects.py  # Alias generator
-└── venv_linux/           # Virtual Environment
+├── app/                  # Flask REST API
+├── config/               # Multi-language YAML configurations
+├── core/                 # Core logic: Parser, Loaders, Managers
+│   ├── parser.py         # Parallel XML streaming parser
+│   ├── sqlite_loader.py  # Zero-RAM SQLite database loader
+│   ├── neo4j_loader.py   # High-speed parallel Neo4j loader
+│   ├── redirect_loader.py# Alias/Redirect importer
+│   └── database_manager.py # DB initialization and stats
+├── data/                 # Data Storage
+│   ├── raw/              # Wikipedia .bz2 dumps
+│   ├── processed/        # Intermediate JSONL/CSV batches
+│   └── db/               # SQLite database files
+├── tools/                # Utility & Monitoring scripts
+└── run_api.py            # API Entry point
 ```
+
+## 🛠️ Requirements
+
+- Python 3.8+
+- Neo4j 5.x (with APOC plugin)
+- ~100GB disk space for full multi-language processing
+- 16GB+ RAM recommended
 
 ## ⚡ Quick Start
 
@@ -56,22 +55,24 @@ docker run -d --name wikigraph-neo4j -p 7474:7474 -p 7687:7687 \
     neo4j:5.14
 ```
 
-### 3. Run Pipeline (Example: Polish)
+### 3. Pipeline Execution (Example: German)
 ```bash
 # 1. Parse XML to batches
-python3 scripts/phase1_production.py --lang=pl
+python3 core/parser.py --lang=de
 
-# 2. Load SQLite (Search Engine)
-python3 scripts/manage_db.py init
-python3 scripts/load_multilang_data.py --lang=pl
+# 2. Ingest to SQLite
+python3 core/database_manager.py init
+python3 core/sqlite_loader.py --lang=de
 
-# 3. Load Neo4j (Graph Engine)
-python3 scripts/load_neo4j.py --lang=pl
-python3 scripts/load_redirects_neo4j.py --lang=pl
+# 3. Ingest to Neo4j
+python3 core/neo4j_loader.py --lang=de
+python3 core/redirect_loader.py --lang=de
 ```
 
-## 🧪 Verification & Analytics
-Run `python3 scripts/robust_verify.py` to analyze the graph structure, find major hubs, and test pathfinding between nodes.
+## 📊 Current Status
+- **Polish (pl)**: 2.1M articles ingested.
+- **German (de)**: 5.9M articles processed.
+- **English (en)**: 25GB dump ready for processing.
 
----
-*Maintained by Gzyms69. Last updated: Dec 25, 2025.*
+--- 
+*WikiGraph - Transforming Wikipedia into a professional knowledge graph.*
