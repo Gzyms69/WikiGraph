@@ -11,6 +11,7 @@ import csv
 import sys
 import glob
 import time
+import argparse
 from pathlib import Path
 from multiprocessing import Pool, cpu_count
 from typing import List, Tuple, Dict
@@ -29,7 +30,7 @@ def setup_database_optimizations(cursor):
     """Apply SQLite performance optimizations for bulk loading."""
     cursor.execute("PRAGMA journal_mode = WAL;")
     cursor.execute("PRAGMA synchronous = NORMAL;")
-    cursor.execute("PRAGMA cache_size = -1000000; # 1GB Safe Cache")
+    cursor.execute("PRAGMA cache_size = -1000000;")
     cursor.execute("PRAGMA temp_store = MEMORY;")
     cursor.execute("PRAGMA locking_mode = EXCLUSIVE;")
 
@@ -131,6 +132,7 @@ def load_links_parallel(cursor, data_dir: Path, lang_code: str):
                 if i % 10 == 0:
                     cursor.connection.commit()
                     time.sleep(0.5)
+            if pbar: pbar.update(1)
     
     cursor.connection.commit()
     if pbar: pbar.close()
@@ -157,6 +159,7 @@ def main():
     db_path = base_dir / 'data' / 'db' / 'wikigraph_multilang.db'
     data_dir = base_dir / 'data' / 'processed' / args.lang
 
+    conn = None
     try:
         conn = sqlite3.connect(str(db_path))
         cursor = conn.cursor()
@@ -168,9 +171,12 @@ def main():
         
         recreate_indexes_and_safety(cursor)
         print(f"\n✅ SUCCESS [{args.lang.upper()}]: Articles={a_count:,}, Links={l_count:,}")
-
-finally:
-    if 'conn' in locals(): conn.close()
+    except Exception as e:
+        print(f"❌ FATAL ERROR: {e}")
+        import traceback
+        traceback.print_exc()
+    finally:
+        if conn: conn.close()
 
 if __name__ == "__main__":
     main()

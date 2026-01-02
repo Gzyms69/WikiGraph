@@ -52,7 +52,7 @@ pip install -r requirements.txt
 docker run -d --name wikigraph-neo4j -p 7474:7474 -p 7687:7687 \
     -e NEO4J_AUTH=neo4j/wikigraph \
     -e NEO4J_PLUGINS='["apoc"]' \
-    neo4j:5.14
+    neo4j:5.15
 ```
 
 ### 3. Pipeline Execution (Example: German)

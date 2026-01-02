@@ -11,7 +11,7 @@ ujson>=5.8.0
 pyyaml>=6.0.0
 
 # Database
-neo4j>=5.14.0
+neo4j>=5.15.0
 networkx>=3.0
 sqlalchemy>=2.0.0
 
