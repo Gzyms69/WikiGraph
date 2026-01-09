@@ -9,6 +9,7 @@ interface ControlDeckProps {
   colorByCommunity: boolean;
   setColorByCommunity: (val: boolean) => void;
   onResetCamera: () => void;
+  onOpenSettings: () => void;
 }
 
 const ControlDeck: React.FC<ControlDeckProps> = ({
@@ -19,6 +20,7 @@ const ControlDeck: React.FC<ControlDeckProps> = ({
   colorByCommunity,
   setColorByCommunity,
   onResetCamera,
+  onOpenSettings,
 }) => {
   return (
     <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-30 pointer-events-auto">
@@ -77,6 +79,7 @@ const ControlDeck: React.FC<ControlDeckProps> = ({
         <div className="w-px h-8 bg-white/10 mx-1" />
 
         <button 
+          onClick={onOpenSettings}
           className="p-3 rounded-xl hover:bg-white/10 text-white/60 hover:text-white transition-all"
           title="System Settings"
         >

@@ -79,10 +79,9 @@ function start() {
     elif [ $neo4j_status -eq 2 ]; then
         echo -e "${YELLOW}📦 Neo4j container stopped. Starting...${NC}"
         docker start neo4j >/dev/null
-        wait_for_port $NEO4J_BOLT "Neo4j Bolt"
     else
         echo -e "${YELLOW}📦 Provisioning new Neo4j container...${NC}"
-        # Logic matches archive/start_services.sh
+        # Optimized memory for 32GB RAM system
         docker run -d \
             --name neo4j \
             --publish=$NEO4J_HTTP:7474 --publish=$NEO4J_BOLT:7687 \
@@ -91,11 +90,31 @@ function start() {
             --env NEO4J_AUTH=neo4j/wikigraph \
             --env NEO4J_PLUGINS='["apoc", "graph-data-science"]' \
             --env NEO4J_dbms_security_procedures_unrestricted=gds.*,apoc.* \
-            --env NEO4J_server_memory_heap_initial__size=1G \
-            --env NEO4J_server_memory_heap_max__size=4G \
-            --env NEO4J_server_memory_pagecache_size=4G \
+            --env NEO4J_server_memory_heap_initial__size=4G \
+            --env NEO4J_server_memory_heap_max__size=12G \
+            --env NEO4J_server_memory_pagecache_size=8G \
+            --env NEO4J_server_gds_memory_limit=6G \
+            --env NEO4J_dbms_memory_transaction_total_max=8G \
             neo4j:5-community >/dev/null
-        wait_for_port $NEO4J_BOLT "Neo4j Bolt"
+    fi
+
+    # Wait for Neo4j to be truly ready (not just port open)
+    echo -n "   Waiting for Neo4j to accept queries..."
+    local ready=0
+    for i in {1..30}; do
+        if docker exec neo4j cypher-shell -u neo4j -p wikigraph "RETURN 1" >/dev/null 2>&1; then
+            ready=1
+            break
+        fi
+        echo -n "."
+        sleep 2
+    done
+
+    if [ $ready -eq 1 ]; then
+        echo -e " ${GREEN}OK${NC}"
+    else
+        echo -e " ${RED}FAILED (Check docker logs neo4j)${NC}"
+        return 1
     fi
 
     # 2. Start Backend API
@@ -103,9 +122,9 @@ function start() {
         echo -e "${GREEN}✅ Backend API is already running.${NC}"
     else
         echo -e "${YELLOW}🧠 Starting FastAPI Backend...${NC}"
-        # Use < /dev/null to prevent uvicorn from dying in background
         cd "$PROJECT_ROOT"
-        nohup python3 -m uvicorn app.main:app --host 0.0.0.0 --port $BACKEND_PORT --reload < /dev/null > "$API_LOG" 2>&1 &
+        # Use setsid to detach process completely
+        setsid python3 -m uvicorn app.main:app --host 0.0.0.0 --port $BACKEND_PORT < /dev/null > "$API_LOG" 2>&1 &
         echo $! > "$BACKEND_PID"
         wait_for_port $BACKEND_PORT "FastAPI"
     fi
@@ -134,31 +153,37 @@ function start() {
 function stop() {
     echo -e "${RED}🛑 Stopping WikiGraph Lab...${NC}"
     
-    # Stop Frontend
-    if [ -f "$FRONTEND_PID" ]; then
-        PID=$(cat "$FRONTEND_PID")
-        echo -n "Stopping Frontend (PID $PID)..."
-        kill $PID 2>/dev/null || true
-        rm "$FRONTEND_PID"
-        echo -e " ${GREEN}Done${NC}"
-    fi
-    # Safety net for Frontend
-    if is_port_open $FRONTEND_PORT; then
-        fuser -k $FRONTEND_PORT/tcp 2>/dev/null || true
-    fi
+    # 1. Kill Processes by PID file
+    for pid_file in "$FRONTEND_PID" "$BACKEND_PID"; do
+        if [ -f "$pid_file" ]; then
+            PID=$(cat "$pid_file")
+            echo -n "   Stopping process $PID..."
+            kill $PID 2>/dev/null || true
+            rm "$pid_file"
+            echo -e " ${GREEN}OK${NC}"
+        fi
+    done
 
-    # Stop Backend
-    if [ -f "$BACKEND_PID" ]; then
-        PID=$(cat "$BACKEND_PID")
-        echo -n "Stopping Backend (PID $PID)..."
-        kill $PID 2>/dev/null || true
-        rm "$BACKEND_PID"
-        echo -e " ${GREEN}Done${NC}"
-    fi
-    # Safety net for Backend
-    if is_port_open $BACKEND_PORT; then
-        fuser -k $BACKEND_PORT/tcp 2>/dev/null || true
-    fi
+    # 2. Aggressive Cleanup (pkill)
+    echo -n "   Cleaning up lingering Node/Python processes..."
+    pkill -f "next dev" 2>/dev/null || true
+    pkill -f "uvicorn app.main:app" 2>/dev/null || true
+    echo -e " ${GREEN}DONE${NC}"
+
+    # 3. Wait for ports to clear
+    echo -n "   Waiting for ports to release..."
+    for i in {1..10}; do
+        if ! is_port_open $FRONTEND_PORT && ! is_port_open $BACKEND_PORT; then
+            echo -e " ${GREEN}OK${NC}"
+            break
+        fi
+        echo -n "."
+        sleep 1
+        if [ $i -eq 10 ]; then
+            echo -e " ${YELLOW}TIMEOUT (Forcing kill)${NC}"
+            fuser -k $FRONTEND_PORT/tcp $BACKEND_PORT/tcp 2>/dev/null || true
+        fi
+    done
 
     echo -e "${GREEN}Local processes stopped.${NC}"
     echo -e "${YELLOW}Note: Neo4j container is left running. Run 'docker stop neo4j' to stop it.${NC}"

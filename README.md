@@ -1,112 +1,93 @@
-# WikiGraph Lab 🌌
+# WikiGraph Knowledge Engine
 
-**WikiGraph** is a high-performance Knowledge Graph engine designed to visualize and analyze the interconnected structure of Wikipedia across multiple languages. It transforms raw Wikipedia dumps into a graph database (Neo4j), identifying "Concepts" that transcend language barriers, and provides a powerful API for graph algorithms (Shortest Path, PageRank, Community Detection) and a 3D visual frontend.
+WikiGraph is a graph-based system designed to visualize and analyze the semantic structure of Wikipedia. It transforms raw Wikipedia dumps into a Neo4j graph database, allowing for the exploration of interconnected concepts across multiple languages.
 
----
+## Project Overview
 
-## 🚀 Quick Start
+The system consists of three main components:
+1.  **Data Pipeline:** Python scripts that parse Wikipedia XML/SQL dumps and ingest them into Neo4j.
+2.  **Backend API:** A FastAPI service that exposes graph algorithms (PageRank, Shortest Path, Hybrid Ranking) via REST endpoints.
+3.  **Frontend Visualization:** A Next.js/React application using `react-force-graph-3d` to render the knowledge nebula in a browser.
 
-The entire environment is managed by the `dev.sh` control script.
+## Key Features
+
+### Hybrid Weighted Ranking
+WikiGraph uses a sophisticated ranking engine to determine the most relevant neighbors for any given concept. Instead of relying on a single metric, it blends three distinct algorithms:
+*   **Jaccard Similarity:** Measures direct structural overlap (shared neighbors). Useful for finding strict synonyms.
+*   **Adamic-Adar:** Weights connections by the rarity of the shared neighbors. Excellent for finding specific, meaningful context.
+*   **PageRank (Global & Personalized):** Measures the global influence of a node.
+
+Users can adjust the weights of these algorithms in real-time via the "System Settings" panel in the frontend to tailor the discovery process (e.g., favoring global fame vs. niche relevance).
+
+### Interlingual Concept Mapping
+Nodes in the graph represent "Concepts" (identified by Wikidata QIDs), which are language-agnostic. These Concepts are linked to language-specific "Articles" (e.g., English, Polish, German). This allows the graph to be traversed seamlessly across language barriers.
+
+## Architecture
+
+*   **Database:** Neo4j (Graph Database)
+*   **Backend:** Python 3.12, FastAPI, Neo4j Driver, GDS (Graph Data Science) Library
+*   **Frontend:** TypeScript, Next.js 14, Tailwind CSS, Three.js
+*   **Infrastructure:** Docker & Docker Compose
+
+## Quick Start
+
+The project is managed by a central control script: `dev.sh`.
 
 ### Prerequisites
-- **Docker** (for Neo4j Database)
-- **Python 3.10+** (for FastAPI Backend)
-- **Node.js 18+** (for Next.js Frontend)
+*   Docker and Docker Compose
+*   Python 3.10 or higher
+*   Node.js 18 or higher
 
-### 1. Start the Stack
-This single command spins up Neo4j, the Backend API, and the Frontend.
+### Running the System
+To start the entire stack (Database, API, and Frontend):
+
 ```bash
 ./dev.sh start
 ```
-*Wait for the green "Environment Ready!" message.*
 
-### 2. Access Services
-- **frontend:** [http://localhost:3000](http://localhost:3000) - 3D Nebula Visualization
-- **Backend API:** [http://localhost:8000/docs](http://localhost:8000/docs) - Swagger UI
-- **Neo4j Browser:** [http://localhost:7474](http://localhost:7474) - Database Query UI
-  - **User:** `neo4j`
-  - **Password:** `wikigraph`
+This command will:
+1.  Start the Neo4j container.
+2.  Wait for the database to be ready.
+3.  Start the FastAPI backend on port 8000.
+4.  Start the Next.js frontend on port 3000.
 
----
+### Accessing Services
+*   **Frontend:** http://localhost:3000
+*   **API Documentation:** http://localhost:8000/docs
+*   **Neo4j Browser:** http://localhost:7474 (Default credentials: neo4j/wikigraph)
 
-## 🛠️ Development Workflow
+### Stopping the System
+To stop the backend and frontend processes (leaves Neo4j running):
 
-Use the `./dev.sh` script for all common tasks.
-
-| Command | Description |
-| :--- | :--- |
-| `./dev.sh start` | Starts Neo4j, Backend, and Frontend. Checks for existing containers. |
-| `./dev.sh stop` | Stops the Backend and Frontend processes. Leaves Neo4j running. |
-| `./dev.sh restart` | Stops and immediately restarts the Backend and Frontend. |
-| `./dev.sh status` | Checks the health of all services. |
-| `./dev.sh logs` | Tails the logs for both Backend and Frontend in real-time. |
-| `./dev.sh clean` | **Destructive.** Stops everything, removes the Neo4j container, and deletes logs. |
-| `./dev.sh import` | **Destructive.** Wipes the DB and runs the bulk CSV importer from `data/neo4j_bulk/`. |
-
----
-
-## 📂 Project Structure
-
-```text
-/
-├── dev.sh                  # Master control script
-├── app/                    # FastAPI Backend
-│   ├── main.py             # App entry point
-│   ├── api.py              # Route definitions
-│   ├── database.py         # Neo4j connection logic
-│   └── routers/            # API Endpoints
-│       └── graph.py        # Graph algorithms (Neighbors, Pathfinding)
-├── frontend/               # Next.js 3D Frontend
-│   └── src/components/     # React components (WikiNebula)
-├── core/                   # Core Data Processing Logic
-│   └── ingest.py           # XML/SQL parsing utilities
-├── tools/                  # Verification & Debugging Scripts
-│   ├── check_kielce_neighbors.py # Verifies neighbor relevance logic
-│   └── verify_interlingual.py    # Checks concept alignment
-├── data/                   # Data Storage (GitIgnored)
-│   ├── neo4j_data/         # Mounted volume for Neo4j container
-│   └── neo4j_bulk/         # Location for CSVs ready for import
-├── archive/                # Deprecated/Legacy scripts
-├── logs/                   # Process logs and PID files
-└── requirements.txt        # Python dependencies
+```bash
+./dev.sh stop
 ```
 
----
+To stop everything and remove containers (data in `data/neo4j_data` is preserved):
 
-## 🧠 Key Features & Algorithms
+```bash
+./dev.sh clean
+```
 
-### 1. Semantic Neighbor Ranking
-The API uses a **Jaccard Similarity** approximation to rank neighbors. Instead of just showing random links, it prioritizes nodes that share a "local context" (Triangles).
-- **Formula:** `Intersection / (Degree_A + Degree_B - Intersection)`
-- **Benefit:** Filters out "global noise" (e.g., Dates, Years, generic Lists) and bubbles up relevant connections (e.g., "Kielce" -> "Holy Cross Province").
+## Usage Guide
 
-### 2. Interlingual Concepts
-Nodes in the graph are `Concepts` (language-agnostic entities), which are linked to `Articles` (language-specific pages).
-- **Structure:** `(Article:PL)-[:REPRESENTS]->(Concept)<-[:REPRESENTS]-(Article:EN)`
-- **Benefit:** Allows analyzing the graph structure across languages simultaneously.
+1.  **Exploration:** Open the frontend. You will see a 3D visualization of the graph.
+2.  **Search:** Use the search bar (top right) to find specific articles (e.g., "Kielce", "Python").
+3.  **Navigation:** Click on a node to focus on it. This triggers the Weighted Hybrid Ranking engine to fetch and display its most relevant neighbors.
+4.  **System Settings:**
+    *   Click the "Settings" gear icon in the bottom control deck.
+    *   **Algorithm Weights:** Adjust the sliders to change how neighbors are ranked. For example, increase "Adamic-Adar" to find more specific connections.
+    *   **Physics:** Tune the gravity and link distance to change the layout of the 3D nebula.
+    *   **Regenerate Knowledge:** Click this button to re-calculate connections for all currently visible nodes using your new weight settings.
 
-### 3. Graph Data Science (GDS)
-We use Neo4j GDS for heavy lifting:
-- **PageRank:** Identifying the most influential nodes.
-- **Louvain Modularity:** Detecting communities and clusters.
-- **Shortest Path:** Finding connections between disparate topics.
+## Data Ingestion
 
----
+To populate the graph with new data:
+1.  Place processed CSV files in `data/neo4j_bulk/`.
+2.  Run `./dev.sh import` to trigger the bulk importer. **Warning:** This will wipe the current database.
 
-## 📥 Data Ingestion
+## Development
 
-To populate the graph, you need to parse Wikipedia dumps (XML/SQL) into CSVs.
-
-1.  **Export CSVs:** Use `core/bulk_exporter.py` (or legacy scripts) to generate CSVs in `data/neo4j_bulk/`.
-2.  **Import:** Run `./dev.sh import`. This will:
-    - Stop the current database.
-    - Run `neo4j-admin database import full`.
-    - Restart the database.
-
----
-
-## 📝 Configuration
-
-- **Backend:** Configured via `app/config.py` (Env vars supported).
-- **Frontend:** Configured via `frontend/.env.local`.
-- **Database:** `dev.sh` sets hardcoded defaults for local dev (`neo4j/wikigraph`).
+*   **Backend Code:** Located in `app/`. The main graph logic is in `app/routers/graph.py`.
+*   **Frontend Code:** Located in `frontend/src/`. The main visualization component is `WikiNebula.tsx`.
+*   **Tools:** The `tools/` directory contains scripts for verifying algorithms and debugging the graph structure.

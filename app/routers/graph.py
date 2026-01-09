@@ -1,4 +1,6 @@
 from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel
+from typing import Dict, List, Optional
 from app.database import db
 import logging
 
@@ -6,6 +8,31 @@ import logging
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
+
+class WeightedNeighborsRequest(BaseModel):
+    qid: str
+    lang: str = "pl"
+    limit: int = 15
+    weights: Dict[str, float] = {"jaccard": 1.0, "adamic_adar": 1.0, "ppr": 1.0}
+    algorithms: List[str] = ["jaccard", "adamic_adar", "ppr"]
+
+class BulkNeighborsRequest(BaseModel):
+    requests: List[WeightedNeighborsRequest]
+
+@router.post("/bulk-weighted-neighbors")
+def get_bulk_weighted_neighbors(request: BulkNeighborsRequest):
+    """
+    Batch process multiple neighbor requests.
+    """
+    results = {}
+    for req in request.requests:
+        try:
+            res = get_weighted_neighbors(req)
+            results[req.qid] = res["neighbors"]
+        except Exception as e:
+            logger.error(f"Bulk failed for {req.qid}: {str(e)}")
+            results[req.qid] = []
+    return {"results": results}
 
 @router.get("/shortest-path")
 def shortest_path(start: str, end: str, lang: str = "pl"):
@@ -40,69 +67,50 @@ def shortest_path(start: str, end: str, lang: str = "pl"):
 @router.get("/nebula")
 def get_nebula_sample(langs: str = None, limit: int = 150):
     """
-    Returns a sample of high-importance nodes with PageRank scores and Community IDs,
-    including the links between them.
-    Refactored to use GDS Mutate for stability.
+    Returns a sample of high-importance nodes using precomputed PageRank and Community IDs.
+    Fast read-only endpoint. Requires `tools/precompute_metrics.py` to have been run.
     """
     lang_list = langs.split(",") if langs else []
     
-    # 1. Setup Graph & Analytics (Mutate Phase)
+    query = """
+    MATCH (n:Concept)
+    WHERE n.pagerank IS NOT NULL
+    WITH n
+    ORDER BY n.pagerank DESC
+    LIMIT $limit
+    
+    // Get primary article for display
+    MATCH (n)<-[:REPRESENTS]-(a:Article)
+    """
+    
+    if lang_list:
+        query += " WHERE a.lang IN $langs "
+    
+    query += """
+    WITH n, head(collect(a)) as a
+    
+    RETURN n.qid as qid, 
+           coalesce(a.lang, 'unknown') + ':' + n.qid as id,
+           coalesce(a.title, n.qid) as name, 
+           n.pagerank as val,
+           coalesce(a.lang, 'unknown') as lang,
+           coalesce(n.community, -1) as community
+    """
+    
     try:
         with db.get_session() as session:
-            # Check if graph exists first to avoid unnecessary drops
-            exists = session.run("CALL gds.graph.exists('wikigraph') YIELD exists").single()["exists"]
+            # 1. Fetch Top Nodes
+            logger.info(f"Fetching top {limit} precomputed nodes...")
+            nodes = session.run(query, limit=limit, langs=lang_list).data()
             
-            # Always refresh for this demo to ensure properties are mutated
-            if exists:
-                session.run("CALL gds.graph.drop('wikigraph')")
-            
-            logger.info("Projecting 'wikigraph'...")
-            session.run("""
-                CALL gds.graph.project(
-                    'wikigraph', 
-                    ['Concept', 'Article'], 
-                    {
-                        LINKS_TO: {orientation:'UNDIRECTED'},
-                        REPRESENTS: {orientation:'UNDIRECTED'}
-                    }
-                )
-            """)
-            
-            logger.info("Running PageRank mutation...")
-            session.run("CALL gds.pageRank.mutate('wikigraph', { mutateProperty: 'pagerank' })")
-            
-            logger.info("Running Louvain mutation...")
-            session.run("CALL gds.louvain.mutate('wikigraph', { mutateProperty: 'community' })")
+            if not nodes:
+                logger.warning("No precomputed nodes found. Run 'tools/precompute_metrics.py'!")
+                # Fallback? Or just return empty. Better to fail fast and prompt admin action.
+                return {"nodes": [], "links": []}
 
-            # 2. Fetch Top Nodes
-            logger.info(f"Fetching top {limit} nodes...")
-            node_query = """
-            CALL gds.graph.streamNodeProperty('wikigraph', 'pagerank')
-            YIELD nodeId, propertyValue as pagerank
-            ORDER BY pagerank DESC
-            LIMIT $limit
-            WITH nodeId, pagerank
-            WITH nodeId, pagerank, gds.util.nodeProperty('wikigraph', nodeId, 'community') as community
-            WITH gds.util.asNode(nodeId) as n, pagerank, community
-            MATCH (n)<-[:REPRESENTS]-(a:Article)
-            """
-            
-            if lang_list:
-                node_query += " WHERE a.lang IN $langs "
-                
-            node_query += """
-            RETURN n.qid as qid, 
-                   a.lang + ':' + n.qid as id,
-                   a.title as name, 
-                   pagerank as val,
-                   a.lang as lang,
-                   coalesce(community, -1) as community
-            """
-            
-            nodes = session.run(node_query, limit=limit, langs=lang_list).data()
             logger.info(f"Found {len(nodes)} nodes.")
             
-            # 3. Fetch links between these nodes
+            # 2. Fetch links between these nodes
             qids = [n['qid'] for n in nodes]
             links = []
             
@@ -130,25 +138,58 @@ def get_nebula_sample(langs: str = None, limit: int = 150):
 
     except Exception as e:
         logger.error(f"Nebula Error: {str(e)}")
-        # Return empty structure on failure so frontend doesn't crash
-        print(f"Error generating nebula: {e}")
         return {"nodes": [], "links": []}
 
-@router.get("/neighbors")
-def get_neighbors(qid: str, lang: str = "pl", limit: int = 15):
+@router.post("/weighted-neighbors")
+def get_weighted_neighbors(request: WeightedNeighborsRequest):
     """
-    Get 1-hop neighbors of a Concept, ranked by Jaccard Similarity (Semantic Relevance).
-    This heavily penalizes 'super-hubs' (Dates, Years) that share few common neighbors 
-    relative to their massive degree.
+    Multi-algorithm neighbor scoring with user-defined weights.
+    Normalization: Min-Max normalization within the candidate set.
     """
+    qid = request.qid
+    weights = request.weights
+    limit = request.limit
+    lang = request.lang
+    
+    # 1. Candidate Generation: Union of direct neighbors
+    # We fetch scores for all selected algorithms in one pass
     query = """
     MATCH (c:Concept {qid: $qid})
-    WITH c, COUNT { (c)-[:LINKS_TO]-() } as c_degree
-    
     MATCH (c)-[:LINKS_TO]-(neighbor:Concept)
-    MATCH (neighbor)<-[:REPRESENTS]-(a:Article)
+    WHERE neighbor.qid <> $qid
     
-    // 1. Hard Filters for obvious noise
+    // Calculate raw scores
+    WITH c, neighbor,
+         (1.0 * COUNT { (c)-[:LINKS_TO]-(common)-[:LINKS_TO]-(neighbor) } / 
+          (coalesce(c.degree, 1) + coalesce(neighbor.degree, 1) - 
+           COUNT { (c)-[:LINKS_TO]-(common)-[:LINKS_TO]-(neighbor) })) AS s_jaccard,
+         sum(CASE 
+           WHEN coalesce(common.degree, 100) > 1 
+           THEN 1.0 / log(coalesce(common.degree, 100)) 
+           ELSE 0 
+         END) AS s_aa,
+         coalesce(neighbor.pagerank, 0) as s_ppr
+    
+    // Normalization Step (Z-Score or Min-Max)
+    // Here we use Min-Max relative to the current candidate set
+    WITH collect({n: neighbor, sj: s_jaccard, saa: s_aa, sp: s_ppr}) as candidates
+    UNWIND candidates as can
+    WITH can,
+         max([c in candidates | c.sj]) as max_j, min([c in candidates | c.sj]) as min_j,
+         max([c in candidates | c.saa]) as max_aa, min([c in candidates | c.saa]) as min_aa,
+         max([c in candidates | c.sp]) as max_ppr, min([c in candidates | c.sp]) as min_ppr
+    
+    WITH can.n as neighbor,
+         (CASE WHEN max_j > min_j THEN (can.sj - min_j) / (max_j - min_j) ELSE 0 END) as norm_j,
+         (CASE WHEN max_aa > min_aa THEN (can.saa - min_aa) / (max_aa - min_aa) ELSE 0 END) as norm_aa,
+         (CASE WHEN max_ppr > min_ppr THEN (can.sp - min_ppr) / (max_ppr - min_ppr) ELSE 0 END) as norm_ppr
+         
+    // Weighted Sum
+    WITH neighbor,
+         ($w_j * norm_j + $w_aa * norm_aa + $w_ppr * norm_ppr) as final_score
+    
+    // Filter noise and get primary article
+    MATCH (neighbor)<-[:REPRESENTS]-(a:Article)
     WHERE NOT a.title =~ '^\\d+$' 
       AND NOT a.title =~ '^\\d+ .*'
       AND NOT a.title STARTS WITH 'List of'
@@ -157,37 +198,29 @@ def get_neighbors(qid: str, lang: str = "pl", limit: int = 15):
       AND NOT a.title STARTS WITH 'Category:'
       AND NOT a.title CONTAINS 'Biografien'
     
-    // 2. Jaccard Similarity Calculation
-    // Intersection: Count of nodes connected to BOTH c and neighbor
-    MATCH (c)-[:LINKS_TO]-(common)-[:LINKS_TO]-(neighbor)
-    WITH c, c_degree, neighbor, a, count(common) as intersection
-    
-    // Union: c_degree + n_degree - intersection
-    WITH neighbor, a, intersection, c_degree, COUNT { (neighbor)-[:LINKS_TO]-() } as n_degree
-    WITH neighbor, a, intersection, (c_degree + n_degree - intersection) as union_size
-    
-    WITH neighbor, a, 
-         CASE WHEN union_size > 0 
-              THEN (1.0 * intersection / union_size) 
-              ELSE 0.0 
-         END as score
-    
-    ORDER BY score DESC, CASE WHEN a.lang = $lang THEN 1 ELSE 2 END, size(a.title) DESC
-    
-    // 3. Return best article per neighbor
-    WITH neighbor, score, collect(a) as articles
-    WITH neighbor, score, articles[0] as article
-    
+    ORDER BY final_score DESC
+    WITH neighbor, final_score, collect(a) as articles
+    WITH neighbor, final_score, articles[0] as article
     RETURN neighbor.qid as qid, 
            article.title as title, 
            article.lang as lang,
-           'LINKS_TO' as type,
-           score
+           'HYBRID' as type,
+           final_score as score
     LIMIT $limit
     """
-    with db.get_session() as session:
-        results = session.run(query, qid=qid, lang=lang, limit=limit).data()
-    return {"center": qid, "neighbors": results}
+    
+    try:
+        with db.get_session() as session:
+            results = session.run(query, 
+                                 qid=qid, 
+                                 w_j=weights.get("jaccard", 0), 
+                                 w_aa=weights.get("adamic_adar", 0), 
+                                 w_ppr=weights.get("pagerank", 0), # PPR fallback to pagerank key
+                                 limit=limit).data()
+            return {"center": qid, "neighbors": results}
+    except Exception as e:
+        logger.error(f"Weighted neighbors failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/recommendations")
 def get_recommendations(title: str, lang: str = "pl", limit: int = 5):

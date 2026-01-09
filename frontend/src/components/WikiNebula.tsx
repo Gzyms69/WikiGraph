@@ -10,6 +10,7 @@ import SearchOverlay from './nebula/SearchOverlay';
 import NebulaInfo from './nebula/NebulaInfo';
 import NodeDetailsPanel from './nebula/NodeDetailsPanel';
 import ControlDeck from './nebula/ControlDeck';
+import SettingsPanel from './nebula/SettingsPanel';
 
 const ForceGraph3D = dynamic(() => import('react-force-graph-3d'), {
   ssr: false
@@ -50,6 +51,7 @@ const WikiNebula = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [isSearching, setIsSearching] = useState(false);
+  const [isSpawningNode, setIsSpawningNode] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isInitialized, setIsInitialized] = useState(false);
   const [selectedLangs, setSelectedLangs] = useState<string[]>(['pl', 'de']);
@@ -59,6 +61,19 @@ const WikiNebula = () => {
   const [isPhysicsPaused, setIsPhysicsPaused] = useState(false);
   const [autoRotate, setAutoRotate] = useState(false);
   const [colorByCommunity, setColorByCommunity] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
+
+  // Engine Configuration
+  const [config, setConfig] = useState({
+    neighborLimit: 15,
+    forceStrength: 100,
+    forceDistance: 100,
+    algorithmWeights: {
+      jaccard: 0.0,
+      adamic_adar: 1.0,
+      pagerank: 0.0
+    } as Record<string, number>
+  });
   
   // Spotlight State
   const neighbors = useMemo(() => {
@@ -78,16 +93,19 @@ const WikiNebula = () => {
     nodesRef.current = data.nodes;
   }, [data.nodes]);
 
-  // Handle Physics Toggle
+  // Handle Physics Toggle & Configuration
   useEffect(() => {
     if (fgRef.current) {
       if (isPhysicsPaused) {
         fgRef.current.pauseAnimation();
       } else {
         fgRef.current.resumeAnimation();
+        // Dynamic Force Tuning
+        fgRef.current.d3Force('charge').strength(-config.forceStrength);
+        fgRef.current.d3Force('link').distance(config.forceDistance);
       }
     }
-  }, [isPhysicsPaused]);
+  }, [isPhysicsPaused, config.forceStrength, config.forceDistance]);
 
   // Handle Auto-Rotate Toggle
   useEffect(() => {
@@ -158,6 +176,7 @@ const WikiNebula = () => {
 
   const handleResetCamera = () => {
     if (fgRef.current) {
+      flyParamsRef.current = null; // Interrupt active fly
       fgRef.current.cameraPosition({ x: 0, y: 0, z: 600 }, { x: 0, y: 0, z: 0 }, 2000);
       setSelectedNode(null);
     }
@@ -189,6 +208,9 @@ const WikiNebula = () => {
 
   // 3. Focus Logic
   const focusOnNode = async (qid: string, title: string, lang: string) => {
+    // GUARD: Prevent multiple spawns
+    if (isSpawningNode || isSearching) return;
+
     const targetId = `${lang}:${qid}`;
     let targetNode = nodesRef.current.find(n => n.id === targetId);
 
@@ -200,9 +222,15 @@ const WikiNebula = () => {
       return;
     }
 
-    setIsSearching(true);
+    setIsSpawningNode(title || qid);
     try {
-      const neighborsRes = await axios.get(`${API_BASE}/graph/neighbors?qid=${qid}&limit=15&lang=${lang}`);
+      // DYNAMIC: Using WEIGHTED Hybrid Endpoint
+      const neighborsRes = await axios.post(`${API_BASE}/graph/weighted-neighbors`, {
+        qid,
+        lang,
+        limit: config.neighborLimit,
+        weights: config.algorithmWeights
+      });
       
       const newNode: GraphNode = { 
         id: targetId,
@@ -253,9 +281,72 @@ const WikiNebula = () => {
     } catch (err) {
       console.error(err);
     } finally {
-      setIsSearching(false);
+      setIsSpawningNode(null);
       setSearchResults([]);
       setSearchQuery("");
+    }
+  };
+
+  // 4. Bulk Refresh Logic (Stability Merge)
+  const handleBulkRefresh = async () => {
+    // 1. Identify all center nodes (nodes with neighbors)
+    const centers = data.nodes.filter(n => data.links.some(l => 
+        (typeof l.source === 'string' ? l.source : l.source.id) === n.id
+    ));
+
+    if (centers.length === 0) return;
+    
+    setIsLoading(true);
+    try {
+        const batchSize = 5;
+        const results: any = {};
+        
+        // Chunk requests to avoid overloading
+        for (let i = 0; i < centers.length; i += batchSize) {
+            const chunk = centers.slice(i, i + batchSize);
+            const res = await axios.post(`${API_BASE}/graph/bulk-weighted-neighbors`, {
+                requests: chunk.map(c => ({
+                    qid: c.qid,
+                    lang: c.lang,
+                    limit: config.neighborLimit,
+                    weights: config.algorithmWeights
+                }))
+            });
+            Object.assign(results, res.data.results);
+        }
+
+        // 2. Stability Merge: Preserve existing nodes' positions
+        setData(prev => {
+            const nodeMap = new Map(prev.nodes.map(n => [n.id, n]));
+            const newLinks: any[] = [];
+
+            centers.forEach(center => {
+                const neighbors = results[center.qid] || [];
+                neighbors.forEach((nb: any) => {
+                    const id = (nb.lang && nb.lang !== '??') ? `${nb.lang}:${nb.qid}` : `concept:${nb.qid}`;
+                    if (!nodeMap.has(id)) {
+                        nodeMap.set(id, {
+                            id, qid: nb.qid, name: nb.title, lang: nb.lang, val: 5,
+                            color: '#333333', langColor: LANG_COLORS[nb.lang] || '#333333', commColor: '#333333',
+                            x: (center.x || 0) + (Math.random() - 0.5) * 50,
+                            y: (center.y || 0) + (Math.random() - 0.5) * 50,
+                            z: (center.z || 0) + (Math.random() - 0.5) * 50
+                        });
+                    }
+                    newLinks.push({ source: center.id, target: id, color: '#ffffff11' });
+                });
+            });
+
+            return {
+                nodes: Array.from(nodeMap.values()),
+                links: newLinks
+            };
+        });
+
+    } catch (err) {
+        console.error("Bulk refresh failed", err);
+    } finally {
+        setIsLoading(false);
     }
   };
 
@@ -294,6 +385,10 @@ const WikiNebula = () => {
 
   const toggleLang = (l: string) => {
     setSelectedLangs(prev => prev.includes(l) ? prev.filter(x => x !== l) : [...prev, l]);
+  };
+
+  const updateConfig = (key: string, val: any) => {
+    setConfig(prev => ({ ...prev, [key]: val }));
   };
 
   return (
@@ -385,7 +480,31 @@ const WikiNebula = () => {
             colorByCommunity={colorByCommunity}
             setColorByCommunity={setColorByCommunity}
             onResetCamera={handleResetCamera}
+            onOpenSettings={() => setShowSettings(true)}
           />
+
+          <SettingsPanel 
+            isOpen={showSettings}
+            onClose={() => setShowSettings(false)}
+            config={config}
+            updateConfig={updateConfig}
+            onBulkRefresh={handleBulkRefresh}
+          />
+
+          {/* Summoning Overlay */}
+          {isSpawningNode && (
+            <div className="absolute inset-0 z-50 pointer-events-none flex items-center justify-center">
+              <div className="p-8 rounded-full bg-blue-500/5 border border-blue-500/20 backdrop-blur-3xl animate-pulse">
+                <div className="flex flex-col items-center gap-4">
+                  <Loader2 className="text-blue-400 animate-spin" size={32} />
+                  <div className="text-center">
+                    <p className="text-white/40 text-[10px] uppercase tracking-[0.4em] font-mono">Summoning Knowledge</p>
+                    <p className="text-blue-400 font-bold text-lg tracking-tight">{isSpawningNode}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </>
       )}
 
