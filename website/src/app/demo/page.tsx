@@ -22,6 +22,7 @@ export default function DemoPage() {
   const [copied, setCopied] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [dims, setDimensions] = useState({ w: 0, h: 0 });
+  const [debugLog, setDebugLog] = useState("Ready"); // Visual Debugger
   
   const fgRef = useRef<any>();
 
@@ -76,7 +77,7 @@ export default function DemoPage() {
   const focusNode = useCallback((node: any) => {
     if (!fgRef.current || !node) return;
     
-    console.log("ACTIVATE MENU:", node);
+    setDebugLog(`Clicked: ${node.name}`);
     setIsRotating(false);
 
     const distance = 160;
@@ -138,9 +139,12 @@ export default function DemoPage() {
             <button onClick={() => setLens('cluster')} className={`px-3 py-1.5 rounded-full text-[9px] font-bold uppercase border transition-all ${lens === 'cluster' ? 'bg-purple-600/20 border-purple-500/50 text-purple-400' : 'bg-white/5 border-white/10 text-white/40'}`}>Clusters</button>
           </div>
         </div>
-        <button onClick={() => setIsRotating(!isRotating)} className={`px-4 py-1.5 rounded-full text-[9px] font-bold uppercase border transition-all ${isRotating ? 'border-blue-500/30 text-blue-400' : 'border-white/10 text-white/20'}`}>
-          {isRotating ? 'Orbiting' : 'Stationary'}
-        </button>
+        <div className="flex items-center gap-4">
+          <span className="text-[10px] font-mono text-white/30 uppercase tracking-widest">{debugLog}</span>
+          <button onClick={() => setIsRotating(!isRotating)} className={`px-4 py-1.5 rounded-full text-[9px] font-bold uppercase border transition-all ${isRotating ? 'border-blue-500/30 text-blue-400' : 'border-white/10 text-white/20'}`}>
+            {isRotating ? 'Orbiting' : 'Stationary'}
+          </button>
+        </div>
       </nav>
 
       {/* GRAPH CONTAINER */}
@@ -154,16 +158,15 @@ export default function DemoPage() {
           nodeLabel="name"
           enableNodeDrag={true} 
           onNodeClick={focusNode}
-          // Changed from onNodeDragStart (invalid) to onNodeDragEnd (valid)
-          // This ensures that when you finish dragging a node, the menu opens
-          onNodeDragEnd={focusNode}
+          onNodeDragEnd={focusNode} // Ensure drag also selects
           onNodeHover={node => {
             if (fgRef.current) fgRef.current.renderer().domElement.style.cursor = node ? 'pointer' : 'default';
           }}
-          // Intentionally removed onBackgroundClick to prevent accidental menu closing
+          onBackgroundClick={() => setSelectedNode(null)}
           nodeVal={n => lens === 'influence' ? (n.val || 20) : 20}
           nodeAutoColorBy={lens === 'cluster' ? 'community' : 'lang'}
-          nodeRelSize={lens === 'influence' ? 6 : 4} 
+          // Size reverted to 4
+          nodeRelSize={lens === 'influence' ? 4 : 4} 
           linkOpacity={0.3}
           linkDirectionalParticles={selectedNode ? 4 : 0}
           onEngineTick={() => {
