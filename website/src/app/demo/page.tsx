@@ -1,19 +1,18 @@
 "use client";
 
-import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { 
   ChevronLeft, Info, Zap, Globe, MousePointer2, Code2, 
   Play, Layers, Sparkles, History, Copy, Check, Plus, 
-  Maximize2, Share2, Compass, ChevronRight 
+  Maximize2, Compass, ChevronRight 
 } from 'lucide-react';
 import masterPool from '../../demo-data/demo-nebula.json';
 
 const ForceGraph3D = dynamic(() => import('react-force-graph-3d'), { ssr: false });
 
 export default function DemoPage() {
-  // --- Graph State ---
   const [nodes, setNodes] = useState<any[]>([]);
   const [links, setLinks] = useState<any[]>([]);
   const [selectedNode, setSelectedNode] = useState<any>(null);
@@ -25,7 +24,9 @@ export default function DemoPage() {
   
   const fgRef = useRef<any>();
 
-  // --- Initialize with Seed Data ---
+  // Helper to safely get ID (handles string or object from force-graph)
+  const getId = (idOrObj: any) => typeof idOrObj === 'object' ? idOrObj.id : idOrObj;
+
   useEffect(() => {
     const seedIds = ["en:Q1", "en:Q9", "en:Q5", "en:Q13", "en:Q3"];
     const initialNodes = masterPool.nodes.filter(n => seedIds.includes(n.id));
@@ -34,45 +35,42 @@ export default function DemoPage() {
     setLinks(initialLinks);
   }, []);
 
-  // --- Exploration Logic ---
   const expandNode = (targetNode: any) => {
-    const targetId = targetNode.id;
+    const targetId = getId(targetNode);
     
-    // Find neighbors in master pool not currently visible
     const potentialLinks = masterPool.links.filter(l => 
-      (l.source === targetId || l.target === targetId)
+      (getId(l.source) === targetId || getId(l.target) === targetId)
     );
     
-    const newLinkData: any[] = [];
     const newNodeData: any[] = [];
+    const newLinkData: any[] = [];
     
     potentialLinks.forEach(link => {
-      const neighborId = link.source === targetId ? link.target : link.source;
-      const alreadyVisible = nodes.some(n => n.id === neighborId);
+      const sId = getId(link.source);
+      const tId = getId(link.target);
+      const neighborId = sId === targetId ? tId : sId;
       
+      const alreadyVisible = nodes.some(n => n.id === neighborId);
       if (!alreadyVisible) {
         const neighborNode = masterPool.nodes.find(n => n.id === neighborId);
         if (neighborNode) newNodeData.push(neighborNode);
       }
       
-      // Add the link if it's not already visible
       const linkExists = links.some(l => 
-        (l.source === link.source && l.target === link.target) ||
-        (l.source === link.target && l.target === link.source)
+        (getId(l.source) === sId && getId(l.target) === tId) ||
+        (getId(l.source) === tId && getId(l.target) === sId)
       );
       if (!linkExists) newLinkData.push(link);
     });
 
     if (newNodeData.length === 0 && newLinkData.length === 0) return;
 
-    // Limit expansion to 3 nodes at a time for visual clarity
     const slicedNewNodes = newNodeData.slice(0, 3);
     const slicedIds = new Set(slicedNewNodes.map(n => n.id));
     
-    // Only keep links connected to the nodes we are adding
     const validNewLinks = newLinkData.filter(l => 
-      slicedIds.has(l.source) || slicedIds.has(l.target) || 
-      (nodes.some(n => n.id === l.source) && nodes.some(n => n.id === l.target))
+      slicedIds.has(getId(l.source)) || slicedIds.has(getId(l.target)) || 
+      (nodes.some(n => n.id === getId(l.source)) && nodes.some(n => n.id === getId(l.target)))
     );
 
     setNodes(prev => [...prev, ...slicedNewNodes]);
@@ -80,11 +78,17 @@ export default function DemoPage() {
   };
 
   const focusNode = useCallback((node: any) => {
-    if (!fgRef.current) return;
-    const distance = 120;
-    const distRatio = 1 + distance / Math.hypot(node.x, node.y, node.z);
+    if (!fgRef.current || !node) return;
+    
+    const x = node.x || 0;
+    const y = node.y || 0;
+    const z = node.z || 0;
+    
+    const distance = 150;
+    const distRatio = 1 + distance / (Math.hypot(x, y, z) || 1);
+
     fgRef.current.cameraPosition(
-      { x: node.x * distRatio, y: node.y * distRatio, z: node.z * distRatio },
+      { x: x * distRatio, y: y * distRatio, z: z * distRatio },
       node,
       2000
     );
@@ -98,11 +102,8 @@ export default function DemoPage() {
     const pathIds = ["en:Q9", "en:Q10", "en:Q2", "en:Q16", "en:Q5"];
     for (const id of pathIds) {
       const nodeInMaster = masterPool.nodes.find(n => n.id === id);
-      // Ensure node is visible
       setNodes(prev => prev.some(n => n.id === id) ? prev : [...prev, nodeInMaster]);
-      
-      // Give time for simulation to update
-      await new Promise(r => setTimeout(r, 100));
+      await new Promise(r => setTimeout(r, 200));
       
       const graphNode = fgRef.current.getGraphData().nodes.find((n: any) => n.id === id);
       if (graphNode) {
@@ -114,15 +115,15 @@ export default function DemoPage() {
 
   const copyCypher = () => {
     if (!selectedNode) return;
-    const query = `MATCH (n:Article {qid: '${selectedNode.id.split(':')[1]}', lang: '${selectedNode.lang}'}) RETURN n`;
+    const qid = getId(selectedNode).split(':')[1];
+    const query = `MATCH (n:Article {qid: '${qid}', lang: '${selectedNode.lang}'}) RETURN n`;
     navigator.clipboard.writeText(query);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
 
   return (
-    <div className="h-screen w-screen bg-[#050505] overflow-hidden flex flex-col font-sans text-white selection:bg-blue-500/30">
-      {/* Navigation HUD */}
+    <div className="h-screen w-screen bg-[#050505] overflow-hidden flex flex-col font-sans text-white">
       <nav className="z-50 bg-[#050505]/80 backdrop-blur-xl border-b border-white/5 px-6 py-4 flex items-center justify-between">
         <div className="flex items-center gap-6">
           <Link href="/" className="flex items-center gap-2 group">
@@ -168,22 +169,23 @@ export default function DemoPage() {
         </div>
       </nav>
 
-      <div className="flex-1 relative">
+      <div className="flex-1 relative cursor-default">
         <ForceGraph3D
           ref={fgRef}
           graphData={{ nodes, links }}
           backgroundColor="#050505"
           nodeLabel="name"
           onNodeClick={focusNode}
-          onNodeHover={setHoverNode}
+          onNodeHover={node => {
+            setHoverNode(node);
+            // Change cursor to pointer on hover
+            const el = document.querySelector('.scene-container canvas') as HTMLElement;
+            if (el) el.style.cursor = node ? 'pointer' : 'default';
+          }}
           showNavInfo={false}
-          
-          // Lens Logic
           nodeVal={n => lens === 'influence' ? (n.val || 20) : 20}
           nodeAutoColorBy={lens === 'cluster' ? 'community' : 'lang'}
-          
-          // Visuals
-          nodeRelSize={lens === 'influence' ? 1 : 6}
+          nodeRelSize={lens === 'influence' ? 1.5 : 6}
           linkOpacity={0.3}
           linkWidth={1}
           linkDirectionalParticles={2}
@@ -191,12 +193,11 @@ export default function DemoPage() {
           linkDirectionalParticleWidth={link => {
             const active = selectedNode || hoverNode;
             if (!active) return 0;
-            const sId = (link.source as any).id || link.source;
-            const tId = (link.target as any).id || link.target;
-            return sId === active.id || tId === active.id ? 2 : 0;
+            const sId = getId(link.source);
+            const tId = getId(link.target);
+            const aId = getId(active);
+            return sId === aId || tId === aId ? 2 : 0;
           }}
-
-          // Physics Animation
           onEngineTick={() => {
             if (isRotating && fgRef.current) {
               const { x, y, z } = fgRef.current.cameraPosition();
@@ -208,9 +209,8 @@ export default function DemoPage() {
           }}
         />
 
-        {/* Action Panel (The "Menu") */}
-        <div className="absolute top-6 left-6 z-20 w-80 space-y-4">
-          <div className="bg-black/40 border border-white/5 rounded-[2.5rem] p-8 backdrop-blur-3xl shadow-[0_0_50px_-12px_rgba(59,130,246,0.2)]">
+        <div className="absolute top-6 left-6 z-20 w-80 space-y-4 pointer-events-none">
+          <div className="bg-black/40 border border-white/5 rounded-[2.5rem] p-8 backdrop-blur-3xl shadow-3xl pointer-events-auto">
             {selectedNode ? (
               <div className="animate-in fade-in zoom-in-95 duration-500">
                 <div className="flex items-center justify-between mb-8">
@@ -220,13 +220,12 @@ export default function DemoPage() {
                     </div>
                     <span className="text-[10px] font-bold uppercase tracking-[0.3em] text-blue-400">Node Navigator</span>
                   </div>
-                  <span className="text-[10px] font-mono text-white/20 uppercase tracking-tighter italic">{selectedNode.lang} edition</span>
+                  <span className="text-[10px] font-mono text-white/20 uppercase tracking-tighter italic">{selectedNode.lang}</span>
                 </div>
                 
                 <h3 className="text-3xl font-black italic uppercase tracking-tighter mb-4 leading-[0.9]">{selectedNode.name}</h3>
                 <p className="text-sm text-white/40 leading-relaxed mb-10 italic">"{selectedNode.desc}"</p>
                 
-                {/* Metrics */}
                 <div className="grid grid-cols-2 gap-4 mb-10">
                   <div className="bg-white/5 border border-white/5 rounded-2xl p-4">
                     <span className="block text-[9px] font-bold text-white/20 uppercase mb-1 tracking-widest italic">PageRank</span>
@@ -238,7 +237,6 @@ export default function DemoPage() {
                   </div>
                 </div>
 
-                {/* Primary Actions */}
                 <div className="space-y-3 mb-10">
                   <button 
                     onClick={() => expandNode(selectedNode)}
@@ -261,7 +259,6 @@ export default function DemoPage() {
                   </button>
                 </div>
 
-                {/* Developer Tool */}
                 <div className="space-y-3 pt-8 border-t border-white/5">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
@@ -272,8 +269,8 @@ export default function DemoPage() {
                       {copied ? <Check size={12} /> : <Copy size={12} />}
                     </button>
                   </div>
-                  <div className="bg-black/60 rounded-xl p-5 font-mono text-[10px] text-blue-300 leading-relaxed break-all border border-white/5 shadow-inner italic">
-                    MATCH (n:Article {'{'}qid: '{selectedNode.id.split(':')[1]}', lang: '{selectedNode.lang}'{'}'}) RETURN n
+                  <div className="bg-black/60 rounded-xl p-5 font-mono text-[10px] text-blue-300 leading-relaxed break-all border border-white/5 italic">
+                    MATCH (n:Article {'{'}qid: '{getId(selectedNode).split(':')[1]}', lang: '{selectedNode.lang}'{'}'}) RETURN n
                   </div>
                 </div>
 
@@ -291,21 +288,19 @@ export default function DemoPage() {
                   <Sparkles className="absolute -top-2 -right-2 text-blue-500/30 animate-pulse" size={32} />
                 </div>
                 <p className="text-xs font-bold uppercase tracking-[0.2em] text-white/20 leading-loose">
-                  Navigate the Knowledge Nebula.<br/>
                   Select a node to begin<br/>the expansion protocol.
                 </p>
               </div>
             )}
           </div>
 
-          {/* Knowledge Trail */}
           {viewHistory.length > 0 && (
-            <div className="bg-black/40 border border-white/5 rounded-[2rem] p-6 backdrop-blur-2xl">
+            <div className="bg-black/40 border border-white/5 rounded-[2rem] p-6 backdrop-blur-2xl pointer-events-auto shadow-2xl">
               <div className="flex items-center gap-2 mb-4 text-white/20">
                 <History size={14} />
                 <span className="text-[9px] font-bold uppercase tracking-[0.2em]">Research Trail</span>
               </div>
-              <div className="space-y-2">
+              <div className="space-y-2 max-h-40 overflow-y-auto pr-2 custom-scrollbar">
                 {viewHistory.map(node => (
                   <button 
                     key={node.id}
@@ -313,7 +308,7 @@ export default function DemoPage() {
                     className="w-full text-left px-4 py-2 hover:bg-white/5 rounded-xl text-[10px] font-bold uppercase tracking-tighter transition-all flex items-center justify-between group"
                   >
                     <span className="text-white/40 group-hover:text-white/80">{node.name}</span>
-                    <ChevronLeft className="opacity-0 group-hover:opacity-100 transition-opacity rotate-180 text-blue-500" size={12} />
+                    <ChevronRight size={12} className="opacity-0 group-hover:opacity-100 transition-opacity text-blue-500" />
                   </button>
                 ))}
               </div>
@@ -321,8 +316,7 @@ export default function DemoPage() {
           )}
         </div>
 
-        {/* Interaction Guide HUD */}
-        <div className="absolute bottom-10 left-1/2 -translate-x-1/2 z-20 flex items-center gap-8 px-10 py-5 bg-[#050505]/80 backdrop-blur-2xl rounded-full border border-white/10 text-[9px] font-black uppercase tracking-[0.3em] text-white/20 shadow-3xl">
+        <div className="absolute bottom-10 left-1/2 -translate-x-1/2 z-20 flex items-center gap-8 px-10 py-5 bg-[#050505]/80 backdrop-blur-2xl rounded-full border border-white/10 text-[9px] font-black uppercase tracking-[0.3em] text-white/20 shadow-3xl pointer-events-none">
           <div className="flex items-center gap-2">
             <div className="w-1.5 h-1.5 rounded-full bg-blue-500 shadow-[0_0_10px_rgba(59,130,246,0.5)]" />
             L-Click to Inspect
