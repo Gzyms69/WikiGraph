@@ -1,6 +1,7 @@
 "use client";
 
-import React, { dynamic } from 'next/dynamic';
+import React from 'react';
+import dynamic from 'next/dynamic';
 import { Zap, Globe, Database, Cpu, ChevronRight, BarChart3, Binary } from 'lucide-react';
 import demoData from '../demo-data/demo-nebula.json';
 
