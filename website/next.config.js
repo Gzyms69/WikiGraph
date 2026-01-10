@@ -2,7 +2,7 @@
 const nextConfig = {
   output: 'export',
   basePath: '/WikiGraph',
-  assetPrefix: '/WikiGraph/',
+  // assetPrefix removed to prevent potential path resolution conflicts
   images: {
     unoptimized: true,
   },
