@@ -1,36 +1,23 @@
 {
   "nodes": [
-    {"id": "en:Q1", "name": "Human Knowledge", "val": 100, "lang": "en", "community": 0, "desc": "The totality of human understanding and information."},
-    {"id": "en:Q2", "name": "Mathematics", "val": 80, "lang": "en", "community": 1, "desc": "The abstract science of number, quantity, and space."},
-    {"id": "en:Q3", "name": "Physics", "val": 85, "lang": "en", "community": 1, "desc": "The study of matter, energy, and their interactions."},
-    {"id": "en:Q4", "name": "Astronomy", "val": 70, "lang": "en", "community": 1, "desc": "The study of celestial objects and phenomena."},
-    {"id": "en:Q5", "name": "Computing", "val": 90, "lang": "en", "community": 2, "desc": "The process of using computer technology to complete a task."},
-    {"id": "en:Q6", "name": "Artificial Intelligence", "val": 75, "lang": "en", "community": 2, "desc": "Simulation of human intelligence by machines."},
-    {"id": "en:Q7", "name": "Space Exploration", "val": 65, "lang": "en", "community": 1, "desc": "The discovery and exploration of celestial structures."},
-    {"id": "en:Q8", "name": "Internet", "val": 95, "lang": "en", "community": 2, "desc": "Global system of interconnected computer networks."},
-    {"id": "en:Q9", "name": "Philosophy", "val": 60, "lang": "en", "community": 3, "desc": "The study of the fundamental nature of knowledge."},
-    {"id": "en:Q10", "name": "Logic", "val": 55, "lang": "en", "community": 3, "desc": "Reasoning conducted according to strict principles."},
-    {"id": "en:Q11", "name": "NASA", "val": 50, "lang": "en", "community": 1, "desc": "U.S. agency responsible for space research."},
-    {"id": "en:Q12", "name": "Quantum Mechanics", "val": 45, "lang": "en", "community": 1, "desc": "Physics dealing with subatomic particles."},
-    {"id": "en:Q13", "name": "World Wide Web", "val": 40, "lang": "en", "community": 2, "desc": "Information system where documents are identified by URLs."},
-    {"id": "en:Q14", "name": "Algorithms", "val": 35, "lang": "en", "community": 2, "desc": "Step-by-step procedures for calculation."}
+    {"id": "en:Q1", "name": "Human Knowledge", "val": 100, "lang": "en", "community": 0, "desc": "The totality of human understanding."},
+    {"id": "en:Q2", "name": "Mathematics", "val": 85, "lang": "en", "community": 1, "desc": "Science of structure, order, and relation."},
+    {"id": "en:Q3", "name": "Physics", "val": 80, "lang": "en", "community": 1, "desc": "Study of matter and its motion."},
+    {"id": "en:Q5", "name": "Computing", "val": 90, "lang": "en", "community": 2, "desc": "The study of algorithmic processes."},
+    {"id": "en:Q9", "name": "Philosophy", "val": 75, "lang": "en", "community": 3, "desc": "Study of fundamental nature of existence."},
+    {"id": "en:Q10", "name": "Logic", "val": 70, "lang": "en", "community": 3, "desc": "Reasoning conducted according to strict principles."},
+    {"id": "en:Q14", "name": "Algorithms", "val": 65, "lang": "en", "community": 2, "desc": "Step-by-step procedures for calculation."},
+    {"id": "pl:Q1", "name": "Wiedza", "val": 40, "lang": "pl", "community": 0, "desc": "Polish edition of Human Knowledge."},
+    {"id": "de:Q1", "name": "Wissen", "val": 45, "lang": "de", "community": 0, "desc": "German edition of Human Knowledge."}
   ],
   "links": [
-    {"source": "en:Q1", "target": "en:Q2"},
-    {"source": "en:Q1", "target": "en:Q3"},
-    {"source": "en:Q1", "target": "en:Q5"},
     {"source": "en:Q1", "target": "en:Q9"},
-    {"source": "en:Q2", "target": "en:Q3"},
-    {"source": "en:Q3", "target": "en:Q4"},
-    {"source": "en:Q4", "target": "en:Q7"},
-    {"source": "en:Q7", "target": "en:Q11"},
-    {"source": "en:Q3", "target": "en:Q12"},
-    {"source": "en:Q5", "target": "en:Q6"},
-    {"source": "en:Q5", "target": "en:Q8"},
-    {"source": "en:Q8", "target": "en:Q13"},
-    {"source": "en:Q5", "target": "en:Q14"},
     {"source": "en:Q9", "target": "en:Q10"},
     {"source": "en:Q10", "target": "en:Q2"},
-    {"source": "en:Q10", "target": "en:Q14"}
+    {"source": "en:Q2", "target": "en:Q3"},
+    {"source": "en:Q2", "target": "en:Q14"},
+    {"source": "en:Q14", "target": "en:Q5"},
+    {"source": "en:Q1", "target": "pl:Q1"},
+    {"source": "en:Q1", "target": "de:Q1"}
   ]
 }
