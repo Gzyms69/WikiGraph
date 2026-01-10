@@ -73,6 +73,9 @@ export default function DemoPage() {
   const focusNode = useCallback((node: any) => {
     if (!fgRef.current || !node) return;
     
+    // STOP rotation immediately to prevent fighting the camera animation
+    setIsRotating(false);
+
     const distance = 150;
     const distRatio = 1 + distance / Math.hypot(node.x || 0, node.y || 0, node.z || 0);
 
@@ -83,7 +86,6 @@ export default function DemoPage() {
     );
     setSelectedNode(node);
     setViewHistory(prev => [node, ...prev.filter(n => n.id !== node.id)].slice(0, 5));
-    setIsRotating(false);
   }, []);
 
   const handleSearch = (e: React.FormEvent) => {
@@ -131,7 +133,6 @@ export default function DemoPage() {
   };
 
   // --- Memoized Graph Data to prevent Jitter ---
-  // Ensure strict referential equality unless data actually changes
   const graphData = useMemo(() => ({ nodes, links }), [nodes, links]);
 
   return (
@@ -182,6 +183,7 @@ export default function DemoPage() {
           graphData={graphData}
           backgroundColor="#050505"
           nodeLabel="name"
+          enableNodeDrag={false} // CRITICAL: Prevents clicks from being interpreted as drags
           onNodeClick={focusNode}
           onNodeHover={node => {
             if (fgRef.current) {
