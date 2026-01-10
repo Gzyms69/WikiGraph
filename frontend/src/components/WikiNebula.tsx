@@ -18,20 +18,43 @@ const ForceGraph3D = dynamic(() => import('react-force-graph-3d'), {
 
 const API_BASE = "http://localhost:8000";
 
-const LANG_COLORS: Record<string, string> = {
-  pl: "#dc143c", // Polish Red
-  de: "#ffce00", // German Gold
-  en: "#00247d", // Royal Blue
+// --- PROCEDURAL ENGINES ---
+
+// 1. Color Engine: Consistent HSL from string
+const getLangColor = (lang: string) => {
+  if (!lang || lang === '??') return '#555555';
+  let hash = 0;
+  for (let i = 0; i < lang.length; i++) {
+    hash = lang.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  // Hue: Hash % 360, Sat: 70%, Light: 50%
+  const h = Math.abs(hash % 360);
+  return `hsl(${h}, 70%, 50%)`;
 };
 
-interface FlyParams {
-  startTime: number;
-  startPos: { x: number; y: number; z: number };
-  offset: { x: number; y: number; z: number };
-  node: GraphNode;
-}
+// 2. Layout Engine: Dynamic Spiral Assignment
+const langPositionRegistry = new Map<string, {x: number, y: number, z: number}>();
+const GOLDEN_ANGLE = Math.PI * (3 - Math.sqrt(5));
 
-// Stable Community Color Generator
+const getLangCenter = (lang: string) => {
+  if (!lang || lang === '??') return { x: 0, y: 0, z: 0 };
+  
+  if (!langPositionRegistry.has(lang)) {
+    const index = langPositionRegistry.size + 1; // Start at 1
+    const y = index * 20 - 200; // Vertical spiral
+    const radius = 300;
+    const theta = index * GOLDEN_ANGLE;
+    
+    const x = radius * Math.cos(theta);
+    const z = radius * Math.sin(theta);
+    
+    langPositionRegistry.set(lang, { x, y, z });
+  }
+  
+  return langPositionRegistry.get(lang)!;
+};
+
+// Stable Community Color Generator (Still useful for sub-clusters)
 const getCommunityColor = (id?: number) => {
   if (id === undefined) return '#555555';
   const colors = [
@@ -40,6 +63,13 @@ const getCommunityColor = (id?: number) => {
   ];
   return colors[id % colors.length];
 };
+
+interface FlyParams {
+  startTime: number;
+  startPos: { x: number; y: number; z: number };
+  offset: { x: number; y: number; z: number };
+  node: GraphNode;
+}
 
 const WikiNebula = () => {
   const fgRef = useRef<any>();
@@ -54,7 +84,9 @@ const WikiNebula = () => {
   const [isSpawningNode, setIsSpawningNode] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isInitialized, setIsInitialized] = useState(false);
-  const [selectedLangs, setSelectedLangs] = useState<string[]>(['pl', 'de']);
+  
+  // Default to browser locale or empty, NOT hardcoded 'pl'/'de'
+  const [selectedLangs, setSelectedLangs] = useState<string[]>([]);
 
   // UI & Visual States
   const [selectedNode, setSelectedNode] = useState<GraphNode | null>(null);
@@ -100,9 +132,26 @@ const WikiNebula = () => {
         fgRef.current.pauseAnimation();
       } else {
         fgRef.current.resumeAnimation();
-        // Dynamic Force Tuning
+        
+        // 1. Standard Forces
         fgRef.current.d3Force('charge').strength(-config.forceStrength);
         fgRef.current.d3Force('link').distance(config.forceDistance);
+
+        // 2. Custom Force: Language Clustering
+        // Pulls nodes gently towards their procedural language center
+        fgRef.current.d3Force('lang_cluster', (alpha: number) => {
+          for (const node of nodesRef.current) {
+            const lang = (node as any).lang || 'unknown';
+            const center = getLangCenter(lang);
+            
+            // Strength factor (0.05) determines how strictly they adhere to the cluster
+            const strength = 0.05 * alpha; 
+            
+            if (node.x !== undefined) node.x += (center.x - node.x) * strength;
+            if (node.y !== undefined) node.y += (center.y - node.y) * strength;
+            if (node.z !== undefined) node.z += (center.z - node.z) * strength;
+          }
+        });
       }
     }
   }, [isPhysicsPaused, config.forceStrength, config.forceDistance]);
@@ -122,24 +171,27 @@ const WikiNebula = () => {
   const startNebula = async () => {
     setIsLoading(true);
     try {
-      const langParam = selectedLangs.join(",");
-      const res = await axios.get(`${API_BASE}/graph/nebula?langs=${langParam}&limit=150`);
-      const nodes = res.data.nodes.map((n: any) => ({
-        ...n,
-        // Pre-calculate base colors
-        langColor: LANG_COLORS[n.lang] || '#555555',
-        commColor: getCommunityColor(n.community),
-        // Use safer scaling: Min size 2
-        val: Math.max(Math.sqrt(n.val || 0) * 2, 2),
-        // Wider spawn area
-        x: (Math.random() - 0.5) * 500,
-        y: (Math.random() - 0.5) * 500,
-        z: (Math.random() - 0.5) * 500
-      }));
+      const langParam = selectedLangs.length > 0 ? selectedLangs.join(",") : "";
+      const url = langParam ? `${API_BASE}/graph/nebula?langs=${langParam}&limit=150` : `${API_BASE}/graph/nebula?limit=150`;
+      
+      const res = await axios.get(url);
+      const nodes = res.data.nodes.map((n: any) => {
+        const lang = n.lang || 'unknown';
+        const center = getLangCenter(lang);
+        return {
+          ...n,
+          langColor: getLangColor(lang),
+          commColor: getCommunityColor(n.community),
+          val: Math.max(Math.sqrt(n.val || 0) * 2, 2),
+          // Procedural Spawn: Near dynamically assigned language center
+          x: center.x + (Math.random() - 0.5) * 200,
+          y: center.y + (Math.random() - 0.5) * 200,
+          z: center.z + (Math.random() - 0.5) * 200
+        };
+      });
       setData({ nodes, links: res.data.links || [] });
       setIsInitialized(true);
       
-      // Auto-zoom to fit ONLY on initial load
       if (fgRef.current) {
         setTimeout(() => {
             fgRef.current.zoomToFit(1000, 100); 
@@ -176,7 +228,7 @@ const WikiNebula = () => {
 
   const handleResetCamera = () => {
     if (fgRef.current) {
-      flyParamsRef.current = null; // Interrupt active fly
+      flyParamsRef.current = null;
       fgRef.current.cameraPosition({ x: 0, y: 0, z: 600 }, { x: 0, y: 0, z: 0 }, 2000);
       setSelectedNode(null);
     }
@@ -208,7 +260,6 @@ const WikiNebula = () => {
 
   // 3. Focus Logic
   const focusOnNode = async (qid: string, title: string, lang: string) => {
-    // GUARD: Prevent multiple spawns
     if (isSpawningNode || isSearching) return;
 
     const targetId = `${lang}:${qid}`;
@@ -224,7 +275,6 @@ const WikiNebula = () => {
 
     setIsSpawningNode(title || qid);
     try {
-      // DYNAMIC: Using WEIGHTED Hybrid Endpoint
       const neighborsRes = await axios.post(`${API_BASE}/graph/weighted-neighbors`, {
         qid,
         lang,
@@ -232,33 +282,40 @@ const WikiNebula = () => {
         weights: config.algorithmWeights
       });
       
+      const center = getLangCenter(lang);
       const newNode: GraphNode = { 
         id: targetId,
         qid: qid,
         name: title || qid, 
         lang: lang, 
         val: 12, 
-        color: LANG_COLORS[lang] || '#555555', // Fallback
-        langColor: LANG_COLORS[lang] || '#555555',
+        color: getLangColor(lang),
+        langColor: getLangColor(lang),
         commColor: getCommunityColor(0),
-        x: (Math.random() - 0.5) * 50,
-        y: (Math.random() - 0.5) * 50,
-        z: (Math.random() - 0.5) * 50
+        // Spawn near its procedural language center
+        x: center.x + (Math.random() - 0.5) * 50,
+        y: center.y + (Math.random() - 0.5) * 50,
+        z: center.z + (Math.random() - 0.5) * 50
       };
 
-      const neighborNodes = neighborsRes.data.neighbors.map((nb: any) => ({
-        id: (nb.lang && nb.lang !== '??') ? `${nb.lang}:${nb.qid}` : `concept:${nb.qid}`,
-        qid: nb.qid,
-        name: nb.title || nb.qid || 'Unknown',
-        lang: nb.lang || '??',
-        val: 5,
-        color: '#333333',
-        langColor: LANG_COLORS[nb.lang] || '#333333',
-        commColor: '#333333',
-        x: (Math.random() - 0.5) * 100,
-        y: (Math.random() - 0.5) * 100,
-        z: (Math.random() - 0.5) * 100
-      }));
+      const neighborNodes = neighborsRes.data.neighbors.map((nb: any) => {
+        const nbLang = nb.lang || 'unknown';
+        const nbCenter = getLangCenter(nbLang);
+        return {
+          id: (nb.lang && nb.lang !== '??') ? `${nb.lang}:${nb.qid}` : `concept:${nb.qid}`,
+          qid: nb.qid,
+          name: nb.title || nb.qid || 'Unknown',
+          lang: nbLang,
+          val: 5,
+          color: '#333333',
+          langColor: getLangColor(nbLang),
+          commColor: '#333333',
+          // Pull towards THEIR language center
+          x: nbCenter.x + (Math.random() - 0.5) * 100,
+          y: nbCenter.y + (Math.random() - 0.5) * 100,
+          z: nbCenter.z + (Math.random() - 0.5) * 100
+        };
+      });
 
       const newLinks = neighborsRes.data.neighbors.map((nb: any) => ({
         source: targetId,
@@ -287,9 +344,8 @@ const WikiNebula = () => {
     }
   };
 
-  // 4. Bulk Refresh Logic (Stability Merge)
+  // 4. Bulk Refresh Logic
   const handleBulkRefresh = async () => {
-    // 1. Identify all center nodes (nodes with neighbors)
     const centers = data.nodes.filter(n => data.links.some(l => 
         (typeof l.source === 'string' ? l.source : l.source.id) === n.id
     ));
@@ -301,7 +357,6 @@ const WikiNebula = () => {
         const batchSize = 5;
         const results: any = {};
         
-        // Chunk requests to avoid overloading
         for (let i = 0; i < centers.length; i += batchSize) {
             const chunk = centers.slice(i, i + batchSize);
             const res = await axios.post(`${API_BASE}/graph/bulk-weighted-neighbors`, {
@@ -315,7 +370,6 @@ const WikiNebula = () => {
             Object.assign(results, res.data.results);
         }
 
-        // 2. Stability Merge: Preserve existing nodes' positions
         setData(prev => {
             const nodeMap = new Map(prev.nodes.map(n => [n.id, n]));
             const newLinks: any[] = [];
@@ -325,12 +379,15 @@ const WikiNebula = () => {
                 neighbors.forEach((nb: any) => {
                     const id = (nb.lang && nb.lang !== '??') ? `${nb.lang}:${nb.qid}` : `concept:${nb.qid}`;
                     if (!nodeMap.has(id)) {
+                        const nbLang = nb.lang || 'unknown';
+                        const nbCenter = getLangCenter(nbLang);
                         nodeMap.set(id, {
-                            id, qid: nb.qid, name: nb.title, lang: nb.lang, val: 5,
-                            color: '#333333', langColor: LANG_COLORS[nb.lang] || '#333333', commColor: '#333333',
-                            x: (center.x || 0) + (Math.random() - 0.5) * 50,
-                            y: (center.y || 0) + (Math.random() - 0.5) * 50,
-                            z: (center.z || 0) + (Math.random() - 0.5) * 50
+                            id, qid: nb.qid, name: nb.title, lang: nbLang, val: 5,
+                            color: '#333333', langColor: getLangColor(nbLang), commColor: '#333333',
+                            // New neighbors respect dynamic language centers
+                            x: nbCenter.x + (Math.random() - 0.5) * 50,
+                            y: nbCenter.y + (Math.random() - 0.5) * 50,
+                            z: nbCenter.z + (Math.random() - 0.5) * 50
                         });
                     }
                     newLinks.push({ source: center.id, target: id, color: '#ffffff11' });

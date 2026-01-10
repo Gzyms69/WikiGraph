@@ -26,6 +26,8 @@ def get_node_embeddings(limit: int = 5, dimensions: int = 16):
         if not exists:
             raise HTTPException(status_code=400, detail="Analytics not initialized. Call /analytics/initialize first.")
             
-        results = session.run(query, limit=limit, dim=dimensions).data()
-        
-    return {"algorithm": "FastRP", "dimensions": dimensions, "embeddings": results}
+        try:
+            results = session.run(query, limit=limit, dim=dimensions).data()
+            return {"algorithm": "FastRP", "dimensions": dimensions, "embeddings": results}
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Embedding generation failed: {str(e)}")

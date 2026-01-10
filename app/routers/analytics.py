@@ -62,15 +62,18 @@ def find_bridges(limit: int = 10):
     Uses concurrency to handle large graph scale.
     """
     query = """
-    CALL gds.betweenness.stream('wikigraph', { concurrency: 8 })
+    CALL gds.betweenness.stream('wikigraph', { concurrency: 4 })
     YIELD nodeId, score
     RETURN gds.util.asNode(nodeId).qid AS qid, score
     ORDER BY score DESC
     LIMIT $limit
     """
-    with db.get_session() as session:
-        results = session.run(query, limit=limit).data()
-    return {"bridges": results}
+    try:
+        with db.get_session() as session:
+            results = session.run(query, limit=limit).data()
+        return {"bridges": results}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Bridge analysis failed: {str(e)}")
 
 @router.post("/silos")
 def find_silos(limit: int = 5):

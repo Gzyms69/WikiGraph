@@ -139,7 +139,7 @@ def initialize_fts_tables(db_path: Optional[Path] = None):
 
         conn.commit()
 
-def search_articles(db_path: Path, query: str, lang: str = 'pl',
+def search_articles(db_path: Path, query: str, lang: str,
                    limit: int = 50, offset: int = 0) -> Dict[str, Any]:
     """
     Perform full-text search on articles.

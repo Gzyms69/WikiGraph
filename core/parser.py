@@ -25,10 +25,15 @@ sys.path.append(str(Path(__file__).parent.parent))
 from config.language_manager import LanguageManager
 
 def worker_init(lang_code):
-    global category_prefixes, redirect_keywords, worker_lang
+    global category_prefixes, redirect_keywords, worker_lang, has_spaces
     worker_lang = lang_code
-    category_prefixes = LanguageManager.get_namespace_prefixes(lang_code).get('category', ['Category:'])
-    redirect_keywords = LanguageManager.get_redirect_keywords(lang_code)
+    config = LanguageManager.get_config(lang_code)
+    
+    category_prefixes = config['wikipedia']['namespace_prefixes'].get('category', ['Category:'])
+    redirect_keywords = config['wikipedia']['redirect_keywords']
+    
+    # Default to True if not specified (legacy behavior)
+    has_spaces = config.get('text_processing', {}).get('has_spaces', True)
 
 def parse_page_xml(page_xml):
     """Worker: Parses raw XML bytes into structured data."""
@@ -57,7 +62,14 @@ def parse_page_xml(page_xml):
         
         clean_text = re.sub(r'\{\{.*?\}\}', '', text, flags=re.DOTALL)
         clean_text = re.sub(r'\[\[(?:[^\|]*\|)?([^\|]+)\]\]', r'\1', clean_text)
-        word_count = len(clean_text.split())
+        
+        # Tokenization Strategy
+        if has_spaces:
+            word_count = len(clean_text.split())
+        else:
+            # For CJK, use character count as proxy for "volume"
+            # Removing spaces first to be safe
+            word_count = len(clean_text.replace(" ", "").replace("\n", ""))
 
         article_data = {
             'id': int(page_id),
