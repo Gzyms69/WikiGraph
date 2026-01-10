@@ -2,7 +2,7 @@
 
 import React, { dynamic } from 'next/dynamic';
 import { Zap, Globe, Database, Cpu, ChevronRight, BarChart3, Binary } from 'lucide-react';
-import demoData from '../data/demo-nebula.json';
+import demoData from '../demo-data/demo-nebula.json';
 
 // Use dynamic import for ForceGraph to avoid SSR issues
 const ForceGraph3D = dynamic(() => import('react-force-graph-3d'), { ssr: false });

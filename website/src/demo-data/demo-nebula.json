@@ -1,0 +1,15 @@
+{
+  "nodes": [
+    {"id": "en:Q1", "name": "Human Knowledge", "val": 50, "lang": "en", "community": 1},
+    {"id": "en:Q2", "name": "Mathematics", "val": 30, "lang": "en", "community": 2},
+    {"id": "en:Q3", "name": "History", "val": 35, "lang": "en", "community": 3},
+    {"id": "pl:Q1", "name": "Wiedza", "val": 20, "lang": "pl", "community": 1},
+    {"id": "de:Q1", "name": "Wissen", "val": 25, "lang": "de", "community": 1}
+  ],
+  "links": [
+    {"source": "en:Q1", "target": "en:Q2"},
+    {"source": "en:Q1", "target": "en:Q3"},
+    {"source": "en:Q1", "target": "pl:Q1"},
+    {"source": "en:Q1", "target": "de:Q1"}
+  ]
+}
