@@ -131,6 +131,7 @@ export default function DemoPage() {
   };
 
   // --- Memoized Graph Data to prevent Jitter ---
+  // Ensure strict referential equality unless data actually changes
   const graphData = useMemo(() => ({ nodes, links }), [nodes, links]);
 
   return (
