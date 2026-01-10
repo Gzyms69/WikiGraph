@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { 
   ChevronLeft, Info, Zap, Globe, MousePointer2, Code2, 
   Play, Layers, Sparkles, History, Copy, Check, Plus, 
-  Maximize2, Share2, Compass 
+  Maximize2, Share2, Compass, ChevronRight 
 } from 'lucide-react';
 import masterPool from '../../demo-data/demo-nebula.json';
 

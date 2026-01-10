@@ -12,7 +12,7 @@
     {"id": "en:Q10", "name": "Logic", "val": 70, "lang": "en", "community": 3, "desc": "Reasoning conducted according to strict principles."},
     {"id": "en:Q11", "name": "Ethics", "val": 60, "lang": "en", "community": 3, "desc": "Moral principles that govern behavior."},
     {"id": "en:Q12", "name": "Epistemology", "val": 58, "lang": "en", "community": 3, "desc": "The theory of knowledge."},
-    {"id": "en:Q13", "name": "Biology", "size": 78, "lang": "en", "community": 4, "desc": "Study of living organisms."},
+    {"id": "en:Q13", "name": "Biology", "val": 78, "lang": "en", "community": 4, "desc": "Study of living organisms."},
     {"id": "en:Q14", "name": "Genetics", "val": 62, "lang": "en", "community": 4, "desc": "Study of heredity and variation."},
     {"id": "en:Q15", "name": "Evolution", "val": 68, "lang": "en", "community": 4, "desc": "Process of development of organisms."},
     {"id": "en:Q16", "name": "Algorithms", "val": 65, "lang": "en", "community": 2, "desc": "Step-by-step procedures."},
@@ -20,8 +20,16 @@
     {"id": "en:Q18", "name": "NASA", "val": 50, "lang": "en", "community": 1, "desc": "Space research agency."},
     {"id": "en:Q19", "name": "Quantum Computing", "val": 52, "lang": "en", "community": 2, "desc": "Computing using quantum-mechanical phenomena."},
     {"id": "en:Q20", "name": "Cryptography", "val": 48, "lang": "en", "community": 2, "desc": "Secure communication techniques."},
+    
     {"id": "pl:Q1", "name": "Wiedza", "val": 40, "lang": "pl", "community": 0, "desc": "Polish edition of Human Knowledge."},
-    {"id": "de:Q1", "name": "Wissen", "val": 45, "lang": "de", "community": 0, "desc": "German edition of Human Knowledge."}
+    {"id": "pl:Q2", "name": "Nauka", "val": 35, "lang": "pl", "community": 0, "desc": "Systematyczne zdobywanie wiedzy."},
+    {"id": "pl:Q3", "name": "Filozofia", "val": 30, "lang": "pl", "community": 3, "desc": "Rozważania nad naturą bytu."},
+    {"id": "pl:Q4", "name": "Informatyka", "val": 32, "lang": "pl", "community": 2, "desc": "Przetwarzanie informacji."},
+    
+    {"id": "de:Q1", "name": "Wissen", "val": 45, "lang": "de", "community": 0, "desc": "German edition of Human Knowledge."},
+    {"id": "de:Q2", "name": "Wissenschaft", "val": 38, "lang": "de", "community": 0, "desc": "Systematische Erforschung der Welt."},
+    {"id": "de:Q3", "name": "Philosophie", "val": 33, "lang": "de", "community": 3, "desc": "Erforschung des Denkens und Seins."},
+    {"id": "de:Q4", "name": "Informatik", "val": 35, "lang": "de", "community": 2, "desc": "Wissenschaft der Informationsverarbeitung."}
   ],
   "links": [
     {"source": "en:Q1", "target": "en:Q9"},
@@ -43,7 +51,15 @@
     {"source": "en:Q17", "target": "en:Q18"},
     {"source": "en:Q13", "target": "en:Q14"},
     {"source": "en:Q13", "target": "en:Q15"},
+    
     {"source": "en:Q1", "target": "pl:Q1"},
-    {"source": "en:Q1", "target": "de:Q1"}
+    {"source": "pl:Q1", "target": "pl:Q2"},
+    {"source": "pl:Q1", "target": "pl:Q3"},
+    {"source": "pl:Q1", "target": "pl:Q4"},
+    
+    {"source": "en:Q1", "target": "de:Q1"},
+    {"source": "de:Q1", "target": "de:Q2"},
+    {"source": "de:Q1", "target": "de:Q3"},
+    {"source": "de:Q1", "target": "de:Q4"}
   ]
 }
