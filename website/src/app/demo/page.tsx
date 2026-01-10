@@ -39,7 +39,6 @@ export default function DemoPage() {
   }, []);
 
   // --- Connectivity Scan ---
-  // Finds all links in masterPool that connect a list of new nodes to visible nodes
   const findLinksForNodes = (newNodes: any[], currentNodes: any[]) => {
     const allIds = new Set([...currentNodes.map(n => n.id), ...newNodes.map(n => n.id)]);
     return masterPool.links.filter(l => {
@@ -52,7 +51,6 @@ export default function DemoPage() {
   const expandNode = (targetNode: any) => {
     const targetId = getId(targetNode);
     
-    // Find neighbors in master pool not currently visible
     const neighbors = masterPool.links
       .filter(l => getId(l.source) === targetId || getId(l.target) === targetId)
       .map(l => getId(l.source) === targetId ? getId(l.target) : getId(l.source));
@@ -73,7 +71,7 @@ export default function DemoPage() {
   const focusNode = useCallback((node: any) => {
     if (!fgRef.current || !node) return;
     
-    // STOP rotation immediately to prevent fighting the camera animation
+    // Stop rotation immediately on selection
     setIsRotating(false);
 
     const distance = 150;
@@ -132,7 +130,6 @@ export default function DemoPage() {
     }
   };
 
-  // --- Memoized Graph Data to prevent Jitter ---
   const graphData = useMemo(() => ({ nodes, links }), [nodes, links]);
 
   return (
@@ -165,12 +162,12 @@ export default function DemoPage() {
         </div>
         
         <div className="flex items-center gap-3">
-          <button onClick={walkPath} className="px-4 py-1.5 bg-blue-600 text-white rounded-full text-[9px] font-bold uppercase tracking-widest shadow-xl">
+          <button onClick={walkPath} className="px-4 py-1.5 bg-blue-600 text-white rounded-full text-[9px] font-bold uppercase tracking-widest shadow-xl text-glow">
             Storytelling Mode
           </button>
           <button 
             onClick={() => setIsRotating(!isRotating)}
-            className="px-4 py-1.5 rounded-full text-[9px] font-bold uppercase tracking-widest border border-white/10 text-white/20"
+            className="px-4 py-1.5 rounded-full text-[9px] font-bold uppercase tracking-widest border border-white/10 text-white/20 hover:text-white transition-colors"
           >
             {isRotating ? 'Auto-Rotate ON' : 'Paused'}
           </button>
@@ -183,8 +180,8 @@ export default function DemoPage() {
           graphData={graphData}
           backgroundColor="#050505"
           nodeLabel="name"
-          enableNodeDrag={false} // CRITICAL: Prevents clicks from being interpreted as drags
-          onNodeClick={focusNode}
+          enableNodeDrag={true} // Restored dragging
+          onNodeDoubleClick={focusNode} // Changed to double click for menu
           onNodeHover={node => {
             if (fgRef.current) {
               fgRef.current.renderer().domElement.style.cursor = node ? 'pointer' : 'default';
@@ -210,15 +207,15 @@ export default function DemoPage() {
           }}
         />
 
-        {/* UI Overlay - Using pointer-events-none on parent and auto on children */}
+        {/* UI Overlay */}
         <div className="absolute inset-0 z-20 pointer-events-none flex flex-col p-6">
           <div className="w-80 space-y-4 pointer-events-auto">
             <form onSubmit={handleSearch} className="relative group">
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-white/20" size={18} />
               <input 
                 type="text"
-                placeholder="Search Knowledge (e.g. Linux)..."
-                className="w-full bg-black/60 border border-white/10 rounded-2xl py-4 pl-12 pr-4 backdrop-blur-2xl focus:outline-none focus:border-blue-500/50 text-sm text-white"
+                placeholder="Search Knowledge..."
+                className="w-full bg-black/60 border border-white/10 rounded-2xl py-4 pl-12 pr-4 backdrop-blur-2xl focus:outline-none focus:border-blue-500/50 text-sm text-white transition-all"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
@@ -238,11 +235,11 @@ export default function DemoPage() {
                   <p className="text-sm text-white/40 leading-relaxed mb-8 italic">"{selectedNode.desc}"</p>
                   
                   <div className="grid grid-cols-2 gap-4 mb-8">
-                    <div className="bg-white/5 border border-white/5 rounded-2xl p-4">
+                    <div className="bg-white/5 border border-white/5 rounded-2xl p-4 text-center">
                       <span className="block text-[9px] font-bold text-white/20 uppercase mb-1">Influence</span>
                       <span className="text-2xl font-black text-blue-400">{selectedNode.val}%</span>
                     </div>
-                    <div className="bg-white/5 border border-white/5 rounded-2xl p-4">
+                    <div className="bg-white/5 border border-white/5 rounded-2xl p-4 text-center">
                       <span className="block text-[9px] font-bold text-white/20 uppercase mb-1">Cluster</span>
                       <span className="text-2xl font-black text-purple-400">#{selectedNode.community}</span>
                     </div>
@@ -251,13 +248,13 @@ export default function DemoPage() {
                   <div className="space-y-3 mb-10">
                     <button 
                       onClick={() => expandNode(selectedNode)}
-                      className="w-full flex items-center justify-between px-6 py-4 bg-blue-600 text-white rounded-2xl font-black uppercase italic text-xs shadow-xl"
+                      className="w-full flex items-center justify-between px-6 py-4 bg-blue-600 text-white rounded-2xl font-black uppercase italic text-xs shadow-xl shadow-blue-600/20 active:scale-95 transition-transform"
                     >
                       <Plus size={16} /> Expand Cluster
                     </button>
                     <button 
                       onClick={() => focusNode(selectedNode)}
-                      className="w-full px-6 py-4 bg-white/5 border border-white/10 rounded-2xl font-bold uppercase italic text-xs text-white/60"
+                      className="w-full px-6 py-4 bg-white/5 border border-white/10 rounded-2xl font-bold uppercase italic text-xs text-white/60 hover:bg-white/10 transition-colors"
                     >
                       Focus Camera
                     </button>
@@ -272,7 +269,7 @@ export default function DemoPage() {
 
                   <button 
                     onClick={() => setSelectedNode(null)}
-                    className="w-full mt-8 text-white/10 hover:text-white/30 text-[9px] font-bold uppercase tracking-[0.4em]"
+                    className="w-full mt-8 text-white/10 hover:text-white/30 text-[9px] font-bold uppercase tracking-[0.4em] transition-colors"
                   >
                     Dismiss
                   </button>
@@ -281,7 +278,7 @@ export default function DemoPage() {
                 <div className="text-center py-12">
                   <MousePointer2 className="mx-auto text-white/10 mb-4 animate-bounce" size={40} />
                   <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/20 leading-loose">
-                    Select a knowledge node<br/>to begin exploration.
+                    Double-click a node<br/>to begin exploration.
                   </p>
                 </div>
               )}
@@ -298,7 +295,7 @@ export default function DemoPage() {
                     <button 
                       key={node.id}
                       onClick={() => focusNode(node)}
-                      className="w-full text-left px-4 py-2 hover:bg-white/5 rounded-xl text-[10px] font-bold uppercase tracking-tighter flex items-center justify-between"
+                      className="w-full text-left px-4 py-2 hover:bg-white/5 rounded-xl text-[10px] font-bold uppercase tracking-tighter flex items-center justify-between transition-colors"
                     >
                       <span className="text-white/40">{node.name}</span>
                       <ChevronRight size={12} className="text-blue-500" />
@@ -311,10 +308,10 @@ export default function DemoPage() {
         </div>
 
         {/* Legend */}
-        <div className="absolute bottom-10 left-1/2 -translate-x-1/2 z-20 flex items-center gap-8 px-10 py-5 bg-[#050505]/80 backdrop-blur-2xl rounded-full border border-white/10 text-[9px] font-black uppercase tracking-[0.3em] text-white/20">
-          <div className="flex items-center gap-2"><div className="w-1.5 h-1.5 rounded-full bg-blue-500" /> Inspect</div>
-          <div className="flex items-center gap-2"><div className="w-1.5 h-1.5 rounded-full bg-purple-500" /> Zoom</div>
-          <div className="flex items-center gap-2"><div className="w-1.5 h-1.5 rounded-full bg-green-500" /> Orbit</div>
+        <div className="absolute bottom-10 left-1/2 -translate-x-1/2 z-20 flex items-center gap-8 px-10 py-5 bg-[#050505]/80 backdrop-blur-2xl rounded-full border border-white/10 text-[9px] font-black uppercase tracking-[0.3em] text-white/20 shadow-xl">
+          <div className="flex items-center gap-2"><div className="w-1.5 h-1.5 rounded-full bg-blue-500" /> D-Click: Inspect</div>
+          <div className="flex items-center gap-2"><div className="w-1.5 h-1.5 rounded-full bg-purple-500" /> Scroll: Zoom</div>
+          <div className="flex items-center gap-2"><div className="w-1.5 h-1.5 rounded-full bg-green-500" /> R-Click: Orbit</div>
         </div>
       </div>
     </div>
