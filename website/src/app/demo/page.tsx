@@ -23,7 +23,8 @@ export default function DemoPage() {
   const [searchQuery, setSearchQuery] = useState('');
   
   const fgRef = useRef<any>();
-  const lastClickTime = useRef(0); // Track click time for manual double-click detection
+  const lastClickTime = useRef(0);
+  const dragStartPos = useRef({ x: 0, y: 0, z: 0 });
 
   // ID Helper
   const getId = (idOrObj: any) => typeof idOrObj === 'object' ? idOrObj.id : idOrObj;
@@ -86,14 +87,27 @@ export default function DemoPage() {
     setViewHistory(prev => [node, ...prev.filter(n => n.id !== node.id)].slice(0, 5));
   }, []);
 
-  // Manual Double-Click Handler
-  const handleNodeClick = useCallback((node: any) => {
-    const now = Date.now();
-    if (now - lastClickTime.current < 300) {
-      // Double click detected
-      focusNode(node);
+  // --- Custom Click/Drag Handlers ---
+  // We use onNodeDragEnd to detect clicks because standard onClick can be swallowed by drag controls
+  const handleNodeDragStart = useCallback((node: any) => {
+    dragStartPos.current = { x: node.x, y: node.y, z: node.z };
+  }, []);
+
+  const handleNodeDragEnd = useCallback((node: any) => {
+    const dx = node.x - dragStartPos.current.x;
+    const dy = node.y - dragStartPos.current.y;
+    const dz = node.z - dragStartPos.current.z;
+    const dist = Math.hypot(dx, dy, dz);
+
+    // If movement is minimal (< 2 units), treat it as a click
+    if (dist < 2) {
+      const now = Date.now();
+      if (now - lastClickTime.current < 300) {
+        // Double click detected
+        focusNode(node);
+      }
+      lastClickTime.current = now;
     }
-    lastClickTime.current = now;
   }, [focusNode]);
 
   const handleSearch = (e: React.FormEvent) => {
@@ -190,8 +204,9 @@ export default function DemoPage() {
           graphData={graphData}
           backgroundColor="#050505"
           nodeLabel="name"
-          enableNodeDrag={true} 
-          onNodeClick={handleNodeClick} // Using manual double-click detection
+          enableNodeDrag={true}
+          onNodeDragStart={handleNodeDragStart}
+          onNodeDragEnd={handleNodeDragEnd}
           onNodeHover={node => {
             if (fgRef.current) {
               fgRef.current.renderer().domElement.style.cursor = node ? 'pointer' : 'default';
