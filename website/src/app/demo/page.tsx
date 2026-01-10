@@ -149,7 +149,7 @@ export default function DemoPage() {
             <button 
               onClick={() => setLens('cluster')}
               className={`px-3 py-1.5 rounded-full text-[9px] font-bold uppercase tracking-widest border transition-all ${
-                lens === 'cluster' ? 'bg-purple-600/20 border-purple-500/50 text-purple-400' : 'bg-white/5 border-white/10 text-white/40' hover:text-white'
+                lens === 'cluster' ? 'bg-purple-600/20 border-purple-500/50 text-purple-400' : 'bg-white/5 border-white/10 text-white/40 hover:text-white'
               }`}
             >
               Clusters
