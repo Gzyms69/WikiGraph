@@ -2,6 +2,7 @@
 
 import React from 'react';
 import dynamic from 'next/dynamic';
+import Link from 'next/link';
 import { Zap, Globe, Database, Cpu, ChevronRight, BarChart3, Binary } from 'lucide-react';
 import demoData from '../demo-data/demo-nebula.json';
 
@@ -9,6 +10,10 @@ import demoData from '../demo-data/demo-nebula.json';
 const ForceGraph3D = dynamic(() => import('react-force-graph-3d'), { ssr: false });
 
 export default function LandingPage() {
+  const scrollToFeatures = () => {
+    document.getElementById('features')?.scrollIntoView({ behavior: 'smooth' });
+  };
+
   return (
     <div className="min-h-screen bg-[#050505] text-white selection:bg-blue-500/30">
       {/* 3D Hero Section */}
@@ -40,19 +45,25 @@ export default function LandingPage() {
           </p>
           
           <div className="flex flex-wrap gap-4 justify-center">
-            <button className="px-8 py-4 bg-blue-600 hover:bg-blue-500 text-white font-black rounded-2xl transition-all shadow-2xl shadow-blue-600/20 flex items-center gap-3 group uppercase text-sm italic">
+            <button 
+              onClick={scrollToFeatures}
+              className="px-8 py-4 bg-blue-600 hover:bg-blue-500 text-white font-black rounded-2xl transition-all shadow-2xl shadow-blue-600/20 flex items-center gap-3 group uppercase text-sm italic"
+            >
               Explore the Nebula
               <ChevronRight className="group-hover:translate-x-1 transition-transform" size={18} />
             </button>
-            <button className="px-8 py-4 bg-white/5 hover:bg-white/10 border border-white/10 text-white font-bold rounded-2xl transition-all backdrop-blur-xl uppercase text-sm italic">
+            <Link 
+              href="/docs"
+              className="px-8 py-4 bg-white/5 hover:bg-white/10 border border-white/10 text-white font-bold rounded-2xl transition-all backdrop-blur-xl uppercase text-sm italic inline-flex items-center"
+            >
               View Documentation
-            </button>
+            </Link>
           </div>
         </div>
       </section>
 
       {/* Stats Grid */}
-      <section className="py-24 px-6 border-b border-white/5 bg-gradient-to-b from-transparent to-white/[0.02]">
+      <section id="features" className="py-24 px-6 border-b border-white/5 bg-gradient-to-b from-transparent to-white/[0.02]">
         <div className="max-w-7xl mx-auto">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             <FeatureCard 
