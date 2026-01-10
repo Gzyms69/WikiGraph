@@ -21,21 +21,16 @@ export default function DemoPage() {
   const [isRotating, setIsRotating] = useState(true);
   const [copied, setCopied] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [dims, setDimensions] = useState({ w: 0, h: 0 }); // Explicit dimensions
+  const [dims, setDimensions] = useState({ w: 0, h: 0 });
   
   const fgRef = useRef<any>();
 
-  // Ensure graph fills window
+  // Resize handler
   useEffect(() => {
     setDimensions({ w: window.innerWidth, h: window.innerHeight });
-    window.addEventListener('resize', () => {
-      setDimensions({ w: window.innerWidth, h: window.innerHeight });
-    });
-    
-    // Debugger
-    const logClick = (e: MouseEvent) => console.log('Global Click at:', e.clientX, e.clientY, e.target);
-    window.addEventListener('click', logClick);
-    return () => window.removeEventListener('click', logClick);
+    const handleResize = () => setDimensions({ w: window.innerWidth, h: window.innerHeight });
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
   }, []);
 
   const getId = (idOrObj: any) => typeof idOrObj === 'object' ? idOrObj.id : idOrObj;
@@ -46,7 +41,6 @@ export default function DemoPage() {
     const initialLinks = masterPool.links.filter(l => 
       seedIds.includes(getId(l.source)) && seedIds.includes(getId(l.target))
     );
-    console.log("Seeding Nodes:", initialNodes.length);
     setNodes(initialNodes);
     setLinks(initialLinks);
   }, []);
@@ -80,10 +74,11 @@ export default function DemoPage() {
   };
 
   const focusNode = useCallback((node: any) => {
-    console.log("NODE CLICKED:", node); // Explicit Log
     if (!fgRef.current || !node) return;
     
+    console.log("Selection Triggered:", node); // Debug Log
     setIsRotating(false);
+
     const distance = 160;
     const distRatio = 1 + distance / Math.hypot(node.x || 0, node.y || 0, node.z || 0);
 
@@ -92,6 +87,8 @@ export default function DemoPage() {
       node,
       1500
     );
+    
+    // Direct state update
     setSelectedNode(node);
     setViewHistory(prev => [node, ...prev.filter(n => n.id !== node.id)].slice(0, 5));
   }, []);
@@ -127,6 +124,9 @@ export default function DemoPage() {
 
   const graphData = useMemo(() => ({ nodes, links }), [nodes, links]);
 
+  // Debug Render State
+  console.log("Render State -> Selected:", selectedNode?.name);
+
   return (
     <div className="h-screen w-screen bg-[#050505] overflow-hidden relative font-sans text-white">
       {/* Top HUD */}
@@ -134,7 +134,7 @@ export default function DemoPage() {
         <div className="flex items-center gap-6">
           <Link href="/" className="flex items-center gap-2 group">
             <ChevronLeft className="text-blue-500 group-hover:-translate-x-1 transition-transform" size={20} />
-            <span className="font-black italic uppercase tracking-tighter text-sm">Wiki<span className="text-blue-500">Graph</span> Lab</span>
+            <span className="font-black italic uppercase tracking-tighter text-sm">Wiki<span className="text-blue-500 text-glow">Graph</span> Lab</span>
           </Link>
           <div className="h-4 w-px bg-white/10" />
           <div className="flex items-center gap-3">
@@ -148,7 +148,6 @@ export default function DemoPage() {
       </nav>
 
       {/* GRAPH CONTAINER */}
-      {/* Explicitly passing width/height to force correct raycaster bounds */}
       {dims.w > 0 && (
         <ForceGraph3D
           ref={fgRef}
@@ -157,15 +156,16 @@ export default function DemoPage() {
           graphData={graphData}
           backgroundColor="#050505"
           nodeLabel="name"
-          enableNodeDrag={false} 
+          enableNodeDrag={false} // Keeping drag off to guarantee clicks work
           onNodeClick={focusNode}
           onNodeHover={node => {
             if (fgRef.current) fgRef.current.renderer().domElement.style.cursor = node ? 'pointer' : 'default';
           }}
           onBackgroundClick={() => setSelectedNode(null)}
+          // INCREASED SIZE: 6 instead of 1.5 to make clicking easier
+          nodeRelSize={lens === 'influence' ? 6 : 4} 
           nodeVal={n => lens === 'influence' ? (n.val || 20) : 20}
           nodeAutoColorBy={lens === 'cluster' ? 'community' : 'lang'}
-          nodeRelSize={lens === 'influence' ? 1.5 : 6}
           linkOpacity={0.3}
           linkDirectionalParticles={selectedNode ? 4 : 0}
           onEngineTick={() => {
@@ -182,14 +182,14 @@ export default function DemoPage() {
         />
       )}
 
-      {/* Sidebar Interface */}
-      <div className="absolute top-24 left-6 z-40 w-80 space-y-4">
+      {/* Sidebar Interface - Explicit pointer-events-auto */}
+      <div className="absolute top-24 left-6 z-40 w-80 space-y-4 pointer-events-auto">
         <form onSubmit={handleSearch} className="relative group">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-white/20 group-focus-within:text-blue-500" size={18} />
           <input type="text" placeholder="Find Article..." className="w-full bg-black/80 border border-white/10 rounded-2xl py-4 pl-12 pr-4 backdrop-blur-xl focus:outline-none focus:border-blue-500/50 text-sm text-white shadow-2xl" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
         </form>
 
-        <div className="bg-black/60 border border-white/5 rounded-[2.5rem] p-8 backdrop-blur-3xl shadow-3xl">
+        <div className="bg-black/60 border border-white/5 rounded-[2.5rem] p-8 backdrop-blur-3xl shadow-3xl transition-all duration-300">
           {selectedNode ? (
             <div className="animate-in fade-in zoom-in-95 duration-300">
               <div className="flex items-center gap-2 mb-6"><Compass className="text-blue-500" size={18} /><span className="text-[10px] font-bold uppercase tracking-[0.3em] text-blue-400">Analysis Mode</span></div>
