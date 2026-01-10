@@ -79,8 +79,14 @@ export default function DemoPage() {
     console.log("ACTIVATE MENU:", node);
     setIsRotating(false);
 
-    // Only move camera if clicked, not just dragged (optional, but nice)
-    // For now, we update selection on ALL interactions.
+    const distance = 160;
+    const distRatio = 1 + distance / Math.hypot(node.x || 0, node.y || 0, node.z || 0);
+
+    fgRef.current.cameraPosition(
+      { x: (node.x || 0) * distRatio, y: (node.y || 0) * distRatio, z: (node.z || 0) * distRatio },
+      node,
+      1500
+    );
     
     setSelectedNode(node);
     setViewHistory(prev => [node, ...prev.filter(n => n.id !== node.id)].slice(0, 5));
@@ -148,15 +154,15 @@ export default function DemoPage() {
           nodeLabel="name"
           enableNodeDrag={true} 
           onNodeClick={focusNode}
-          // AGGRESSIVE MENU TRIGGER: Dragging now opens the menu too.
-          onNodeDragStart={focusNode}
+          // Changed from onNodeDragStart (invalid) to onNodeDragEnd (valid)
+          // This ensures that when you finish dragging a node, the menu opens
+          onNodeDragEnd={focusNode}
           onNodeHover={node => {
             if (fgRef.current) fgRef.current.renderer().domElement.style.cursor = node ? 'pointer' : 'default';
           }}
-          // REMOVED onBackgroundClick to prevent accidental closing
+          // Intentionally removed onBackgroundClick to prevent accidental menu closing
           nodeVal={n => lens === 'influence' ? (n.val || 20) : 20}
           nodeAutoColorBy={lens === 'cluster' ? 'community' : 'lang'}
-          // Large hitboxes
           nodeRelSize={lens === 'influence' ? 6 : 4} 
           linkOpacity={0.3}
           linkDirectionalParticles={selectedNode ? 4 : 0}
@@ -174,7 +180,7 @@ export default function DemoPage() {
         />
       )}
 
-      {/* Sidebar Interface - WITH DEBUG BORDER */}
+      {/* Sidebar Interface */}
       <div className="absolute top-24 left-6 z-40 w-80 space-y-4 pointer-events-auto border-2 border-transparent hover:border-blue-500/20 transition-colors">
         <form onSubmit={handleSearch} className="relative group">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-white/20 group-focus-within:text-blue-500" size={18} />
