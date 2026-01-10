@@ -1,5 +1,6 @@
 name: Deploy to GitHub Pages
 
+# Triggering deployment after GitHub Actions enablement
 on:
   push:
     branches: ["master"]
