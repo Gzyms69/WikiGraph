@@ -21,8 +21,22 @@ export default function DemoPage() {
   const [isRotating, setIsRotating] = useState(true);
   const [copied, setCopied] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [dims, setDimensions] = useState({ w: 0, h: 0 }); // Explicit dimensions
   
   const fgRef = useRef<any>();
+
+  // Ensure graph fills window
+  useEffect(() => {
+    setDimensions({ w: window.innerWidth, h: window.innerHeight });
+    window.addEventListener('resize', () => {
+      setDimensions({ w: window.innerWidth, h: window.innerHeight });
+    });
+    
+    // Debugger
+    const logClick = (e: MouseEvent) => console.log('Global Click at:', e.clientX, e.clientY, e.target);
+    window.addEventListener('click', logClick);
+    return () => window.removeEventListener('click', logClick);
+  }, []);
 
   const getId = (idOrObj: any) => typeof idOrObj === 'object' ? idOrObj.id : idOrObj;
 
@@ -32,6 +46,7 @@ export default function DemoPage() {
     const initialLinks = masterPool.links.filter(l => 
       seedIds.includes(getId(l.source)) && seedIds.includes(getId(l.target))
     );
+    console.log("Seeding Nodes:", initialNodes.length);
     setNodes(initialNodes);
     setLinks(initialLinks);
   }, []);
@@ -65,10 +80,13 @@ export default function DemoPage() {
   };
 
   const focusNode = useCallback((node: any) => {
+    console.log("NODE CLICKED:", node); // Explicit Log
     if (!fgRef.current || !node) return;
+    
     setIsRotating(false);
     const distance = 160;
     const distRatio = 1 + distance / Math.hypot(node.x || 0, node.y || 0, node.z || 0);
+
     fgRef.current.cameraPosition(
       { x: (node.x || 0) * distRatio, y: (node.y || 0) * distRatio, z: (node.z || 0) * distRatio },
       node,
@@ -82,6 +100,7 @@ export default function DemoPage() {
     e.preventDefault();
     const query = searchQuery.toLowerCase();
     const found = masterPool.nodes.find(n => n.name.toLowerCase().includes(query));
+    
     if (found) {
       if (!nodes.some(n => n.id === found.id)) {
         setNodes(prev => {
@@ -110,7 +129,7 @@ export default function DemoPage() {
 
   return (
     <div className="h-screen w-screen bg-[#050505] overflow-hidden relative font-sans text-white">
-      {/* HUD: Navigation */}
+      {/* Top HUD */}
       <nav className="absolute top-0 left-0 right-0 z-50 bg-[#050505]/80 backdrop-blur-md border-b border-white/5 px-6 py-4 flex items-center justify-between">
         <div className="flex items-center gap-6">
           <Link href="/" className="flex items-center gap-2 group">
@@ -128,37 +147,42 @@ export default function DemoPage() {
         </button>
       </nav>
 
-      {/* THE GRAPH: No blocking layers around it */}
-      <ForceGraph3D
-        ref={fgRef}
-        graphData={graphData}
-        backgroundColor="#050505"
-        nodeLabel="name"
-        enableNodeDrag={false} // Isolated to ensure clicks work
-        onNodeClick={focusNode}
-        onNodeHover={node => {
-          if (fgRef.current) fgRef.current.renderer().domElement.style.cursor = node ? 'pointer' : 'default';
-        }}
-        onBackgroundClick={() => setSelectedNode(null)}
-        nodeVal={n => lens === 'influence' ? (n.val || 20) : 20}
-        nodeAutoColorBy={lens === 'cluster' ? 'community' : 'lang'}
-        nodeRelSize={lens === 'influence' ? 1.5 : 6}
-        linkOpacity={0.3}
-        linkDirectionalParticles={selectedNode ? 4 : 0}
-        onEngineTick={() => {
-          if (isRotating && fgRef.current) {
-            const { x, y, z } = fgRef.current.cameraPosition();
-            const angle = 0.002;
-            fgRef.current.cameraPosition({
-              x: x * Math.cos(angle) - z * Math.sin(angle),
-              y: y,
-              z: x * Math.sin(angle) + z * Math.cos(angle)
-            });
-          }
-        }}
-      />
+      {/* GRAPH CONTAINER */}
+      {/* Explicitly passing width/height to force correct raycaster bounds */}
+      {dims.w > 0 && (
+        <ForceGraph3D
+          ref={fgRef}
+          width={dims.w}
+          height={dims.h}
+          graphData={graphData}
+          backgroundColor="#050505"
+          nodeLabel="name"
+          enableNodeDrag={false} 
+          onNodeClick={focusNode}
+          onNodeHover={node => {
+            if (fgRef.current) fgRef.current.renderer().domElement.style.cursor = node ? 'pointer' : 'default';
+          }}
+          onBackgroundClick={() => setSelectedNode(null)}
+          nodeVal={n => lens === 'influence' ? (n.val || 20) : 20}
+          nodeAutoColorBy={lens === 'cluster' ? 'community' : 'lang'}
+          nodeRelSize={lens === 'influence' ? 1.5 : 6}
+          linkOpacity={0.3}
+          linkDirectionalParticles={selectedNode ? 4 : 0}
+          onEngineTick={() => {
+            if (isRotating && fgRef.current) {
+              const { x, y, z } = fgRef.current.cameraPosition();
+              const angle = 0.002;
+              fgRef.current.cameraPosition({
+                x: x * Math.cos(angle) - z * Math.sin(angle),
+                y: y,
+                z: x * Math.sin(angle) + z * Math.cos(angle)
+              });
+            }
+          }}
+        />
+      )}
 
-      {/* HUD: Sidebar (Positioned individually) */}
+      {/* Sidebar Interface */}
       <div className="absolute top-24 left-6 z-40 w-80 space-y-4">
         <form onSubmit={handleSearch} className="relative group">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-white/20 group-focus-within:text-blue-500" size={18} />
