@@ -21,10 +21,10 @@ export default function DemoPage() {
   const [isRotating, setIsRotating] = useState(true);
   const [copied, setCopied] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [debugMsg, setDebugMsg] = useState('Ready');
   
   const fgRef = useRef<any>();
   const lastClickTime = useRef(0);
-  const dragStartPos = useRef({ x: 0, y: 0, z: 0 });
 
   // ID Helper
   const getId = (idOrObj: any) => typeof idOrObj === 'object' ? idOrObj.id : idOrObj;
@@ -52,6 +52,7 @@ export default function DemoPage() {
 
   const expandNode = (targetNode: any) => {
     const targetId = getId(targetNode);
+    setDebugMsg(`Expanding: ${targetNode.name}`);
     
     const neighbors = masterPool.links
       .filter(l => getId(l.source) === targetId || getId(l.target) === targetId)
@@ -61,7 +62,10 @@ export default function DemoPage() {
       .filter(n => neighbors.includes(n.id) && !nodes.find(v => v.id === n.id))
       .slice(0, 3);
 
-    if (nodesToAdd.length === 0) return;
+    if (nodesToAdd.length === 0) {
+      setDebugMsg('No new neighbors found');
+      return;
+    }
 
     setNodes(prevNodes => {
       const nextNodes = [...prevNodes, ...nodesToAdd];
@@ -74,6 +78,7 @@ export default function DemoPage() {
     if (!fgRef.current || !node) return;
     
     setIsRotating(false);
+    setDebugMsg(`Focused: ${node.name}`);
 
     const distance = 150;
     const distRatio = 1 + distance / Math.hypot(node.x || 0, node.y || 0, node.z || 0);
@@ -87,27 +92,18 @@ export default function DemoPage() {
     setViewHistory(prev => [node, ...prev.filter(n => n.id !== node.id)].slice(0, 5));
   }, []);
 
-  // --- Custom Click/Drag Handlers ---
-  // We use onNodeDragEnd to detect clicks because standard onClick can be swallowed by drag controls
-  const handleNodeDragStart = useCallback((node: any) => {
-    dragStartPos.current = { x: node.x, y: node.y, z: node.z };
-  }, []);
-
-  const handleNodeDragEnd = useCallback((node: any) => {
-    const dx = node.x - dragStartPos.current.x;
-    const dy = node.y - dragStartPos.current.y;
-    const dz = node.z - dragStartPos.current.z;
-    const dist = Math.hypot(dx, dy, dz);
-
-    // If movement is minimal (< 2 units), treat it as a click
-    if (dist < 2) {
-      const now = Date.now();
-      if (now - lastClickTime.current < 300) {
-        // Double click detected
-        focusNode(node);
-      }
-      lastClickTime.current = now;
+  // Manual Double-Click Handler
+  const handleNodeClick = useCallback((node: any) => {
+    const now = Date.now();
+    const timeDiff = now - lastClickTime.current;
+    
+    if (timeDiff < 300 && timeDiff > 0) {
+      // Double click detected
+      focusNode(node);
+    } else {
+      setDebugMsg(`Clicked: ${node.name} (Single)`);
     }
+    lastClickTime.current = now;
   }, [focusNode]);
 
   const handleSearch = (e: React.FormEvent) => {
@@ -116,6 +112,7 @@ export default function DemoPage() {
     const found = masterPool.nodes.find(n => n.name.toLowerCase().includes(query));
     
     if (found) {
+      setDebugMsg(`Found: ${found.name}`);
       const isVisible = nodes.some(n => n.id === found.id);
       if (!isVisible) {
         setNodes(prev => {
@@ -129,11 +126,14 @@ export default function DemoPage() {
         const graphNode = fgRef.current.getGraphData().nodes.find((n: any) => n.id === found.id);
         if (graphNode) focusNode(graphNode);
       }, 300);
+    } else {
+      setDebugMsg(`Not found: ${query}`);
     }
   };
 
   const walkPath = async () => {
     setIsRotating(false);
+    setDebugMsg('Starting Path Demo...');
     const pathIds = ["en:Q9", "en:Q10", "en:Q2", "en:Q16", "en:Q5"];
     for (const id of pathIds) {
       const nodeObj = masterPool.nodes.find(n => n.id === id);
@@ -204,9 +204,8 @@ export default function DemoPage() {
           graphData={graphData}
           backgroundColor="#050505"
           nodeLabel="name"
-          enableNodeDrag={true}
-          onNodeDragStart={handleNodeDragStart}
-          onNodeDragEnd={handleNodeDragEnd}
+          enableNodeDrag={true} 
+          onNodeClick={handleNodeClick} // Using manual double-click detection
           onNodeHover={node => {
             if (fgRef.current) {
               fgRef.current.renderer().domElement.style.cursor = node ? 'pointer' : 'default';
@@ -332,11 +331,16 @@ export default function DemoPage() {
           </div>
         </div>
 
-        {/* Legend */}
-        <div className="absolute bottom-10 left-1/2 -translate-x-1/2 z-20 flex items-center gap-8 px-10 py-5 bg-[#050505]/80 backdrop-blur-2xl rounded-full border border-white/10 text-[9px] font-black uppercase tracking-[0.3em] text-white/20 shadow-xl">
-          <div className="flex items-center gap-2"><div className="w-1.5 h-1.5 rounded-full bg-blue-500" /> D-Click: Inspect</div>
-          <div className="flex items-center gap-2"><div className="w-1.5 h-1.5 rounded-full bg-purple-500" /> Scroll: Zoom</div>
-          <div className="flex items-center gap-2"><div className="w-1.5 h-1.5 rounded-full bg-green-500" /> R-Click: Orbit</div>
+        {/* Legend & Debugger */}
+        <div className="absolute bottom-10 left-1/2 -translate-x-1/2 z-20 flex flex-col items-center gap-4 pointer-events-none">
+          <div className="flex items-center gap-8 px-10 py-5 bg-[#050505]/80 backdrop-blur-2xl rounded-full border border-white/10 text-[9px] font-black uppercase tracking-[0.3em] text-white/20 shadow-xl">
+            <div className="flex items-center gap-2"><div className="w-1.5 h-1.5 rounded-full bg-blue-500" /> D-Click: Inspect</div>
+            <div className="flex items-center gap-2"><div className="w-1.5 h-1.5 rounded-full bg-purple-500" /> Scroll: Zoom</div>
+            <div className="flex items-center gap-2"><div className="w-1.5 h-1.5 rounded-full bg-green-500" /> R-Click: Orbit</div>
+          </div>
+          <div className="text-[9px] font-mono text-white/30 uppercase tracking-widest">
+            Last Action: <span className="text-blue-400">{debugMsg}</span>
+          </div>
         </div>
       </div>
     </div>
