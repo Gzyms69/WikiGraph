@@ -23,6 +23,7 @@ export default function DemoPage() {
   const [searchQuery, setSearchQuery] = useState('');
   
   const fgRef = useRef<any>();
+  const lastClickTime = useRef(0); // Track click time for manual double-click detection
 
   // ID Helper
   const getId = (idOrObj: any) => typeof idOrObj === 'object' ? idOrObj.id : idOrObj;
@@ -71,7 +72,6 @@ export default function DemoPage() {
   const focusNode = useCallback((node: any) => {
     if (!fgRef.current || !node) return;
     
-    // Stop rotation immediately on selection
     setIsRotating(false);
 
     const distance = 150;
@@ -85,6 +85,16 @@ export default function DemoPage() {
     setSelectedNode(node);
     setViewHistory(prev => [node, ...prev.filter(n => n.id !== node.id)].slice(0, 5));
   }, []);
+
+  // Manual Double-Click Handler
+  const handleNodeClick = useCallback((node: any) => {
+    const now = Date.now();
+    if (now - lastClickTime.current < 300) {
+      // Double click detected
+      focusNode(node);
+    }
+    lastClickTime.current = now;
+  }, [focusNode]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -180,8 +190,8 @@ export default function DemoPage() {
           graphData={graphData}
           backgroundColor="#050505"
           nodeLabel="name"
-          enableNodeDrag={true} // Restored dragging
-          onNodeDoubleClick={focusNode} // Changed to double click for menu
+          enableNodeDrag={true} 
+          onNodeClick={handleNodeClick} // Using manual double-click detection
           onNodeHover={node => {
             if (fgRef.current) {
               fgRef.current.renderer().domElement.style.cursor = node ? 'pointer' : 'default';
