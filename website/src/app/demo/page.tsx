@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { 
   ChevronLeft, Info, Zap, Globe, MousePointer2, Code2, 
   Play, Layers, Sparkles, History, Copy, Check, Plus, 
-  Maximize2, Compass, ChevronRight 
+  Maximize2, Compass, ChevronRight, Search 
 } from 'lucide-react';
 import masterPool from '../../demo-data/demo-nebula.json';
 
@@ -21,10 +21,10 @@ export default function DemoPage() {
   const [lens, setLens] = useState<'influence' | 'cluster'>('influence');
   const [isRotating, setIsRotating] = useState(true);
   const [copied, setCopied] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
   
   const fgRef = useRef<any>();
 
-  // Helper to safely get ID (handles string or object from force-graph)
   const getId = (idOrObj: any) => typeof idOrObj === 'object' ? idOrObj.id : idOrObj;
 
   useEffect(() => {
@@ -37,6 +37,7 @@ export default function DemoPage() {
 
   const expandNode = (targetNode: any) => {
     const targetId = getId(targetNode);
+    console.log(`Expanding from ${targetId}...`);
     
     const potentialLinks = masterPool.links.filter(l => 
       (getId(l.source) === targetId || getId(l.target) === targetId)
@@ -63,11 +64,13 @@ export default function DemoPage() {
       if (!linkExists) newLinkData.push(link);
     });
 
-    if (newNodeData.length === 0 && newLinkData.length === 0) return;
+    if (newNodeData.length === 0 && newLinkData.length === 0) {
+      console.log("No new nodes found to expand.");
+      return;
+    }
 
     const slicedNewNodes = newNodeData.slice(0, 3);
     const slicedIds = new Set(slicedNewNodes.map(n => n.id));
-    
     const validNewLinks = newLinkData.filter(l => 
       slicedIds.has(getId(l.source)) || slicedIds.has(getId(l.target)) || 
       (nodes.some(n => n.id === getId(l.source)) && nodes.some(n => n.id === getId(l.target)))
@@ -79,6 +82,7 @@ export default function DemoPage() {
 
   const focusNode = useCallback((node: any) => {
     if (!fgRef.current || !node) return;
+    console.log(`Focusing node: ${node.name} (${node.id})`);
     
     const x = node.x || 0;
     const y = node.y || 0;
@@ -95,7 +99,31 @@ export default function DemoPage() {
     setSelectedNode(node);
     setViewHistory(prev => [node, ...prev.filter(n => n.id !== node.id)].slice(0, 5));
     setIsRotating(false);
-  }, []);
+  }, [nodes]);
+
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    const query = searchQuery.toLowerCase();
+    const foundNode = masterPool.nodes.find(n => n.name.toLowerCase().includes(query));
+    
+    if (foundNode) {
+      console.log(`Search matched: ${foundNode.name}`);
+      const isVisible = nodes.some(n => n.id === foundNode.id);
+      if (!isVisible) {
+        setNodes(prev => [...prev, foundNode]);
+        const newLinks = masterPool.links.filter(l => 
+          (getId(l.source) === foundNode.id && nodes.some(n => n.id === getId(l.target))) ||
+          (getId(l.target) === foundNode.id && nodes.some(n => n.id === getId(l.source)))
+        );
+        setLinks(prev => [...prev, ...newLinks]);
+      }
+
+      setTimeout(() => {
+        const graphNode = fgRef.current.getGraphData().nodes.find((n: any) => n.id === foundNode.id);
+        if (graphNode) focusNode(graphNode);
+      }, 200);
+    }
+  };
 
   const walkPath = async () => {
     setIsRotating(false);
@@ -169,7 +197,7 @@ export default function DemoPage() {
         </div>
       </nav>
 
-      <div className="flex-1 relative cursor-default">
+      <div className="flex-1 relative">
         <ForceGraph3D
           ref={fgRef}
           graphData={{ nodes, links }}
@@ -178,10 +206,11 @@ export default function DemoPage() {
           onNodeClick={focusNode}
           onNodeHover={node => {
             setHoverNode(node);
-            // Change cursor to pointer on hover
-            const el = document.querySelector('.scene-container canvas') as HTMLElement;
-            if (el) el.style.cursor = node ? 'pointer' : 'default';
+            if (fgRef.current) {
+              fgRef.current.renderer().domElement.style.cursor = node ? 'pointer' : 'default';
+            }
           }}
+          onBackgroundClick={() => setSelectedNode(null)}
           showNavInfo={false}
           nodeVal={n => lens === 'influence' ? (n.val || 20) : 20}
           nodeAutoColorBy={lens === 'cluster' ? 'community' : 'lang'}
@@ -209,8 +238,20 @@ export default function DemoPage() {
           }}
         />
 
-        <div className="absolute top-6 left-6 z-20 w-80 space-y-4 pointer-events-none">
-          <div className="bg-black/40 border border-white/5 rounded-[2.5rem] p-8 backdrop-blur-3xl shadow-3xl pointer-events-auto">
+        {/* Sidebar Overlay */}
+        <div className="absolute top-6 left-6 z-20 w-80 space-y-4">
+          <form onSubmit={handleSearch} className="relative group shadow-2xl">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-white/20 group-focus-within:text-blue-500 transition-colors" size={18} />
+            <input 
+              type="text"
+              placeholder="Search (e.g. Logic, Linux)..."
+              className="w-full bg-black/60 border border-white/10 rounded-2xl py-4 pl-12 pr-4 backdrop-blur-2xl focus:outline-none focus:border-blue-500/50 transition-all text-sm"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+          </form>
+
+          <div className="bg-black/40 border border-white/5 rounded-[2.5rem] p-8 backdrop-blur-3xl shadow-3xl">
             {selectedNode ? (
               <div className="animate-in fade-in zoom-in-95 duration-500">
                 <div className="flex items-center justify-between mb-8">
@@ -259,7 +300,7 @@ export default function DemoPage() {
                   </button>
                 </div>
 
-                <div className="space-y-3 pt-8 border-t border-white/5">
+                <div className="space-y-3 pt-8 border-t border-white/5 text-left">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <Code2 className="text-white/20" size={14} />
@@ -295,7 +336,7 @@ export default function DemoPage() {
           </div>
 
           {viewHistory.length > 0 && (
-            <div className="bg-black/40 border border-white/5 rounded-[2rem] p-6 backdrop-blur-2xl pointer-events-auto shadow-2xl">
+            <div className="bg-black/40 border border-white/5 rounded-[2rem] p-6 backdrop-blur-2xl shadow-2xl">
               <div className="flex items-center gap-2 mb-4 text-white/20">
                 <History size={14} />
                 <span className="text-[9px] font-bold uppercase tracking-[0.2em]">Research Trail</span>
@@ -318,17 +359,17 @@ export default function DemoPage() {
 
         <div className="absolute bottom-10 left-1/2 -translate-x-1/2 z-20 flex items-center gap-8 px-10 py-5 bg-[#050505]/80 backdrop-blur-2xl rounded-full border border-white/10 text-[9px] font-black uppercase tracking-[0.3em] text-white/20 shadow-3xl pointer-events-none">
           <div className="flex items-center gap-2">
-            <div className="w-1.5 h-1.5 rounded-full bg-blue-500 shadow-[0_0_10px_rgba(59,130,246,0.5)]" />
+            <div className="w-1.5 h-1.5 rounded-full bg-blue-500" />
             L-Click to Inspect
           </div>
           <div className="h-4 w-px bg-white/10" />
           <div className="flex items-center gap-2">
-            <div className="w-1.5 h-1.5 rounded-full bg-purple-500 shadow-[0_0_10px_rgba(168,85,247,0.5)]" />
+            <div className="w-1.5 h-1.5 rounded-full bg-purple-500" />
             Scroll to Zoom
           </div>
           <div className="h-4 w-px bg-white/10" />
           <div className="flex items-center gap-2">
-            <div className="w-1.5 h-1.5 rounded-full bg-green-500 shadow-[0_0_10px_rgba(34,197,94,0.5)]" />
+            <div className="w-1.5 h-1.5 rounded-full bg-green-500" />
             R-Click to Orbit
           </div>
         </div>
