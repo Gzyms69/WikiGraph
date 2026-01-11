@@ -20,19 +20,31 @@ export default function DemoPage() {
   const [lens, setLens] = useState<'influence' | 'cluster'>('influence');
   const [isRotating, setIsRotating] = useState(true);
   const [dims, setDimensions] = useState({ w: 0, h: 0 });
-  const [showWelcome, setShowWelcome] = useState(true); // Onboarding State
+  const [showWelcome, setShowWelcome] = useState(true);
 
   const fgRef = useRef<any>();
 
   // Init
   useEffect(() => {
     setDimensions({ w: window.innerWidth, h: window.innerHeight });
-    window.addEventListener('resize', () => setDimensions({ w: window.innerWidth, h: window.innerHeight }));
+    const handleResize = () => setDimensions({ w: window.innerWidth, h: window.innerHeight });
+    window.addEventListener('resize', handleResize);
     
     const { nodes: initNodes, links: initLinks } = GraphService.getInitialGraph();
     setNodes(initNodes);
     setLinks(initLinks);
+
+    return () => window.removeEventListener('resize', handleResize);
   }, []);
+
+  // Update forces when ref is ready
+  useEffect(() => {
+    if (fgRef.current) {
+      // Stronger repulsion and longer links to keep nodes separate
+      fgRef.current.d3Force('charge').strength(-400);
+      fgRef.current.d3Force('link').distance(100);
+    }
+  }, [nodes]);
 
   // --- INTERACTION ---
   const focusNode = useCallback((node: any) => {
@@ -40,7 +52,7 @@ export default function DemoPage() {
     setIsRotating(false);
     
     if (fgRef.current) {
-      const distance = 120;
+      const distance = 150;
       const distRatio = 1 + distance / Math.hypot(node.x || 0, node.y || 0, node.z || 0);
       fgRef.current.cameraPosition(
         { x: (node.x || 0) * distRatio, y: (node.y || 0) * distRatio, z: (node.z || 0) * distRatio },
@@ -82,8 +94,8 @@ export default function DemoPage() {
     }
 
     if (result) {
-      setSearchQuery(result.name); // Fill input
-      setSuggestions([]); // Clear suggestions
+      setSearchQuery(result.name);
+      setSuggestions([]);
 
       if (!nodes.find(n => n.id === result!.id)) {
         setNodes(prev => {
@@ -146,12 +158,12 @@ export default function DemoPage() {
           enableNodeDrag={true}
           onNodeClick={focusNode}
           onNodeDragEnd={focusNode}
-          nodeVal={n => lens === 'influence' ? (n.val || 20) : 20}
+          // SIZES VARY ACCORDING TO PAGERANK (importance)
+          nodeVal={n => Math.pow(n.val / 10, 2.5)} 
           nodeAutoColorBy={lens === 'cluster' ? 'community' : 'lang'}
-          nodeRelSize={4}
-          // VISUALS IMPROVED: Thicker links
-          linkWidth={1.5}
-          linkOpacity={0.4}
+          nodeRelSize={1} // Base size adjusted for the power-scale nodeVal
+          linkWidth={2}
+          linkOpacity={0.5}
           onNodeHover={node => {
             if (fgRef.current) fgRef.current.renderer().domElement.style.cursor = node ? 'pointer' : 'default';
           }}
@@ -171,21 +183,17 @@ export default function DemoPage() {
 
       {/* SIDEBAR */}
       <div className="absolute top-24 left-6 z-40 w-80 space-y-4 pointer-events-auto">
-        
-        {/* Search Bar + Autocomplete */}
         <div className="relative group">
           <form onSubmit={handleSearchSubmit}>
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-white/20 group-focus-within:text-blue-500" size={18} />
             <input 
               type="text" 
-              placeholder="Search (e.g. 'Music')..." 
+              placeholder="Search (e.g. 'History')..." 
               className="w-full bg-black/80 border border-white/10 rounded-2xl py-4 pl-12 pr-4 backdrop-blur-xl focus:outline-none focus:border-blue-500/50 text-sm text-white shadow-2xl transition-all" 
               value={searchQuery} 
               onChange={handleSearchInput} 
             />
           </form>
-          
-          {/* Suggestions Dropdown */}
           {suggestions.length > 0 && (
             <div className="absolute top-full left-0 right-0 mt-2 bg-black/90 border border-white/10 rounded-xl overflow-hidden shadow-2xl animate-in fade-in slide-in-from-top-2">
               {suggestions.map(s => (
@@ -202,7 +210,6 @@ export default function DemoPage() {
           )}
         </div>
 
-        {/* Info Panel */}
         <div className="bg-black/60 border border-white/5 rounded-[2.5rem] p-8 backdrop-blur-3xl shadow-3xl transition-all duration-300">
           {selectedNode ? (
             <div className="animate-in fade-in zoom-in-95 duration-300">
@@ -258,9 +265,7 @@ export default function DemoPage() {
       {showWelcome && (
         <div className="absolute inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-500">
           <div className="bg-[#0a0a0a] border border-white/10 p-8 rounded-[2rem] max-w-lg w-full shadow-2xl relative overflow-hidden">
-            {/* Background Glow */}
             <div className="absolute top-0 right-0 w-64 h-64 bg-blue-500/10 rounded-full blur-[100px] -translate-y-1/2 translate-x-1/2 pointer-events-none" />
-            
             <div className="relative z-10">
               <div className="flex justify-between items-start mb-6">
                 <div>
@@ -269,7 +274,6 @@ export default function DemoPage() {
                 </div>
                 <button onClick={() => setShowWelcome(false)} className="p-2 hover:bg-white/10 rounded-full transition-colors"><X size={20} className="text-white/40" /></button>
               </div>
-
               <div className="space-y-4 mb-8">
                 <div className="flex gap-4 items-start">
                   <div className="p-3 bg-blue-500/10 rounded-xl text-blue-400"><MousePointer2 size={20} /></div>
@@ -278,7 +282,6 @@ export default function DemoPage() {
                     <p className="text-xs text-white/60 leading-relaxed">Drag background to rotate. Scroll to zoom. <span className="text-blue-400">Click or Drag nodes</span> to view details.</p>
                   </div>
                 </div>
-                
                 <div className="flex gap-4 items-start">
                   <div className="p-3 bg-purple-500/10 rounded-xl text-purple-400"><Search size={20} /></div>
                   <div>
@@ -286,7 +289,6 @@ export default function DemoPage() {
                     <p className="text-xs text-white/60 leading-relaxed">Use the search bar to find topics like "Music" or "Physics".</p>
                   </div>
                 </div>
-
                 <div className="flex gap-4 items-start">
                   <div className="p-3 bg-green-500/10 rounded-xl text-green-400"><Plus size={20} /></div>
                   <div>
@@ -295,18 +297,13 @@ export default function DemoPage() {
                   </div>
                 </div>
               </div>
-
-              <button 
-                onClick={() => setShowWelcome(false)} 
-                className="w-full py-4 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-black uppercase tracking-widest text-xs transition-all shadow-lg hover:shadow-blue-500/25"
-              >
+              <button onClick={() => setShowWelcome(false)} className="w-full py-4 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-black uppercase tracking-widest text-xs transition-all shadow-lg hover:shadow-blue-500/25">
                 Start Exploring
               </button>
             </div>
           </div>
         </div>
       )}
-
     </div>
   );
 }
