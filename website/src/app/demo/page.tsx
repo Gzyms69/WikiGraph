@@ -5,7 +5,7 @@ import dynamic from 'next/dynamic';
 import { 
   ChevronLeft, Info, Zap, Globe, MousePointer2, Code2, 
   Layers, Sparkles, History, Copy, Check, Plus, 
-  Maximize2, Compass, ChevronRight, Search, Share2 
+  Maximize2, Compass, ChevronRight, Search, Share2, HelpCircle, X 
 } from 'lucide-react';
 import { GraphService, Node, Link as GraphLink } from '../../utils/graphService';
 
@@ -20,6 +20,7 @@ export default function DemoPage() {
   const [lens, setLens] = useState<'influence' | 'cluster'>('influence');
   const [isRotating, setIsRotating] = useState(true);
   const [dims, setDimensions] = useState({ w: 0, h: 0 });
+  const [showWelcome, setShowWelcome] = useState(true); // Onboarding State
 
   const fgRef = useRef<any>();
 
@@ -123,9 +124,14 @@ export default function DemoPage() {
             <button onClick={() => setLens('cluster')} className={`px-3 py-1.5 rounded-full text-[9px] font-bold uppercase border transition-all ${lens === 'cluster' ? 'bg-purple-600/20 border-purple-500/50 text-purple-400' : 'bg-white/5 border-white/10 text-white/40'}`}>Clusters</button>
           </div>
         </div>
-        <button onClick={() => setIsRotating(!isRotating)} className={`px-4 py-1.5 rounded-full text-[9px] font-bold uppercase border transition-all ${isRotating ? 'border-blue-500/30 text-blue-400' : 'border-white/10 text-white/20'}`}>
-          {isRotating ? 'Orbiting' : 'Stationary'}
-        </button>
+        <div className="flex items-center gap-4">
+           <button onClick={() => setShowWelcome(true)} className="flex items-center gap-2 px-3 py-1.5 text-[9px] font-bold uppercase text-white/40 hover:text-white transition-colors">
+            <HelpCircle size={14} /> Help
+           </button>
+           <button onClick={() => setIsRotating(!isRotating)} className={`px-4 py-1.5 rounded-full text-[9px] font-bold uppercase border transition-all ${isRotating ? 'border-blue-500/30 text-blue-400' : 'border-white/10 text-white/20'}`}>
+            {isRotating ? 'Orbiting' : 'Stationary'}
+          </button>
+        </div>
       </nav>
 
       {/* GRAPH */}
@@ -143,7 +149,9 @@ export default function DemoPage() {
           nodeVal={n => lens === 'influence' ? (n.val || 20) : 20}
           nodeAutoColorBy={lens === 'cluster' ? 'community' : 'lang'}
           nodeRelSize={4}
-          linkOpacity={0.2}
+          // VISUALS IMPROVED: Thicker links
+          linkWidth={1.5}
+          linkOpacity={0.4}
           onNodeHover={node => {
             if (fgRef.current) fgRef.current.renderer().domElement.style.cursor = node ? 'pointer' : 'default';
           }}
@@ -170,7 +178,7 @@ export default function DemoPage() {
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-white/20 group-focus-within:text-blue-500" size={18} />
             <input 
               type="text" 
-              placeholder="Search (e.g. 'History')..." 
+              placeholder="Search (e.g. 'Music')..." 
               className="w-full bg-black/80 border border-white/10 rounded-2xl py-4 pl-12 pr-4 backdrop-blur-xl focus:outline-none focus:border-blue-500/50 text-sm text-white shadow-2xl transition-all" 
               value={searchQuery} 
               onChange={handleSearchInput} 
@@ -245,6 +253,59 @@ export default function DemoPage() {
           <span className="text-[9px] font-bold uppercase tracking-widest text-white/40">Cluster Core</span>
         </div>
       </div>
+
+      {/* ONBOARDING MODAL */}
+      {showWelcome && (
+        <div className="absolute inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-500">
+          <div className="bg-[#0a0a0a] border border-white/10 p-8 rounded-[2rem] max-w-lg w-full shadow-2xl relative overflow-hidden">
+            {/* Background Glow */}
+            <div className="absolute top-0 right-0 w-64 h-64 bg-blue-500/10 rounded-full blur-[100px] -translate-y-1/2 translate-x-1/2 pointer-events-none" />
+            
+            <div className="relative z-10">
+              <div className="flex justify-between items-start mb-6">
+                <div>
+                   <h2 className="text-3xl font-black italic uppercase tracking-tighter text-white mb-2">Wiki<span className="text-blue-500 text-glow">Graph</span> Lab</h2>
+                   <p className="text-sm text-white/50">Interactive 3D Knowledge Navigator</p>
+                </div>
+                <button onClick={() => setShowWelcome(false)} className="p-2 hover:bg-white/10 rounded-full transition-colors"><X size={20} className="text-white/40" /></button>
+              </div>
+
+              <div className="space-y-4 mb-8">
+                <div className="flex gap-4 items-start">
+                  <div className="p-3 bg-blue-500/10 rounded-xl text-blue-400"><MousePointer2 size={20} /></div>
+                  <div>
+                    <h4 className="text-sm font-bold uppercase tracking-wide text-white mb-1">Navigate & Interact</h4>
+                    <p className="text-xs text-white/60 leading-relaxed">Drag background to rotate. Scroll to zoom. <span className="text-blue-400">Click or Drag nodes</span> to view details.</p>
+                  </div>
+                </div>
+                
+                <div className="flex gap-4 items-start">
+                  <div className="p-3 bg-purple-500/10 rounded-xl text-purple-400"><Search size={20} /></div>
+                  <div>
+                    <h4 className="text-sm font-bold uppercase tracking-wide text-white mb-1">Search & Discover</h4>
+                    <p className="text-xs text-white/60 leading-relaxed">Use the search bar to find topics like "Music" or "Physics".</p>
+                  </div>
+                </div>
+
+                <div className="flex gap-4 items-start">
+                  <div className="p-3 bg-green-500/10 rounded-xl text-green-400"><Plus size={20} /></div>
+                  <div>
+                    <h4 className="text-sm font-bold uppercase tracking-wide text-white mb-1">Expand Knowledge</h4>
+                    <p className="text-xs text-white/60 leading-relaxed">Click the <span className="text-green-400">Expand</span> button in the panel to reveal hidden connections.</p>
+                  </div>
+                </div>
+              </div>
+
+              <button 
+                onClick={() => setShowWelcome(false)} 
+                className="w-full py-4 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-black uppercase tracking-widest text-xs transition-all shadow-lg hover:shadow-blue-500/25"
+              >
+                Start Exploring
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );
