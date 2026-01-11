@@ -83,4 +83,13 @@ export class GraphService {
     const q = query.toLowerCase();
     return masterPool.nodes.find(n => n.name.toLowerCase().includes(q));
   }
+
+  // 5. Suggestions: Returns list of matching nodes
+  static getSuggestions(query: string): Node[] {
+    if (!query || query.length < 2) return [];
+    const q = query.toLowerCase();
+    return masterPool.nodes
+      .filter(n => n.name.toLowerCase().includes(q))
+      .slice(0, 5); // Limit to 5 suggestions
+  }
 }
