@@ -1,4 +1,4 @@
-import masterPool from '../../demo-data/demo-nebula.json';
+import masterPool from '../demo-data/demo-nebula.json';
 
 // Types for our graph data
 export interface Node {
