@@ -1,93 +1,92 @@
-# WikiGraph Knowledge Engine
+# WikiGraph
 
-WikiGraph is a graph-based system designed to visualize and analyze the semantic structure of Wikipedia. It transforms raw Wikipedia dumps into a Neo4j graph database, allowing for the exploration of interconnected concepts across multiple languages.
+WikiGraph is a tool designed to process Wikipedia database dumps and convert them into a knowledge graph using Neo4j for topology and SQLite for metadata storage. It allows for offline analysis, pathfinding, and visualization of Wikipedia's link structure.
 
-## Project Overview
+## Overview
 
-The system consists of three main components:
-1.  **Data Pipeline:** Python scripts that parse Wikipedia XML/SQL dumps and ingest them into Neo4j.
-2.  **Backend API:** A FastAPI service that exposes graph algorithms (PageRank, Shortest Path, Hybrid Ranking) via REST endpoints.
-3.  **Frontend Visualization:** A Next.js/React application using `react-force-graph-3d` to render the knowledge nebula in a browser.
-
-## Key Features
-
-### Hybrid Weighted Ranking
-WikiGraph uses a sophisticated ranking engine to determine the most relevant neighbors for any given concept. Instead of relying on a single metric, it blends three distinct algorithms:
-*   **Jaccard Similarity:** Measures direct structural overlap (shared neighbors). Useful for finding strict synonyms.
-*   **Adamic-Adar:** Weights connections by the rarity of the shared neighbors. Excellent for finding specific, meaningful context.
-*   **PageRank (Global & Personalized):** Measures the global influence of a node.
-
-Users can adjust the weights of these algorithms in real-time via the "System Settings" panel in the frontend to tailor the discovery process (e.g., favoring global fame vs. niche relevance).
-
-### Interlingual Concept Mapping
-Nodes in the graph represent "Concepts" (identified by Wikidata QIDs), which are language-agnostic. These Concepts are linked to language-specific "Articles" (e.g., English, Polish, German). This allows the graph to be traversed seamlessly across language barriers.
+The system supports multiple languages (currently configured for Polish and German) by running isolated Neo4j instances via Docker. It handles the full ETL pipeline: downloading raw SQL dumps, parsing them, resolving redirects, generating graph CSVs, and performing a bulk import into the database.
 
 ## Architecture
 
-*   **Database:** Neo4j (Graph Database)
-*   **Backend:** Python 3.12, FastAPI, Neo4j Driver, GDS (Graph Data Science) Library
-*   **Frontend:** TypeScript, Next.js 14, Tailwind CSS, Three.js
-*   **Infrastructure:** Docker & Docker Compose
+The project is structured as a set of services and a core processing pipeline:
 
-## Quick Start
-
-The project is managed by a central control script: `dev.sh`.
-
-### Prerequisites
-*   Docker and Docker Compose
-*   Python 3.10 or higher
-*   Node.js 18 or higher
-
-### Running the System
-To start the entire stack (Database, API, and Frontend):
-
-```bash
-./dev.sh start
+```
+┌─────────────────────────────────────────────────┐
+│            Unified Backend API (FastAPI)         │
+│  (Routes: /api/pl/... → localhost:7474)         │
+│  (Routes: /api/de/... → localhost:7475)         │
+└─────────────────────────────────────────────────┘
+                    ↓
+┌──────────────┐      ┌──────────────┐
+│ Docker       │      │ Docker       │
+│ Container    │      │ Container    │
+│ neo4j-pl     │      │ neo4j-de     │
+│ Port: 7474   │      │ Port: 7475   │
+└──────────────┘      └──────────────┘
 ```
 
-This command will:
-1.  Start the Neo4j container.
-2.  Wait for the database to be ready.
-3.  Start the FastAPI backend on port 8000.
-4.  Start the Next.js frontend on port 3000.
+## Prerequisites
 
-### Accessing Services
-*   **Frontend:** http://localhost:3000
-*   **API Documentation:** http://localhost:8000/docs
-*   **Neo4j Browser:** http://localhost:7474 (Default credentials: neo4j/wikigraph)
+*   Docker & Docker Compose
+*   Python 3.10+
+*   Node.js 18+
 
-### Stopping the System
-To stop the backend and frontend processes (leaves Neo4j running):
+## Setup and Usage
+
+### Quick Start
+
+To start the environment for a specific language (e.g., Polish):
 
 ```bash
-./dev.sh stop
+./dev.sh start pl
 ```
 
-To stop everything and remove containers (data in `data/neo4j_data` is preserved):
+To check the status of services:
 
 ```bash
-./dev.sh clean
+./dev.sh status
 ```
 
-## Usage Guide
+### Import Pipeline
 
-1.  **Exploration:** Open the frontend. You will see a 3D visualization of the graph.
-2.  **Search:** Use the search bar (top right) to find specific articles (e.g., "Kielce", "Python").
-3.  **Navigation:** Click on a node to focus on it. This triggers the Weighted Hybrid Ranking engine to fetch and display its most relevant neighbors.
-4.  **System Settings:**
-    *   Click the "Settings" gear icon in the bottom control deck.
-    *   **Algorithm Weights:** Adjust the sliders to change how neighbors are ranked. For example, increase "Adamic-Adar" to find more specific connections.
-    *   **Physics:** Tune the gravity and link distance to change the layout of the 3D nebula.
-    *   **Regenerate Knowledge:** Click this button to re-calculate connections for all currently visible nodes using your new weight settings.
+To process a new language (e.g., German), execute the pipeline scripts in the following order:
 
-## Data Ingestion
+1.  **Download Data:** Fetches the required SQL dumps from Wikimedia.
+    ```bash
+    python3 core/tools/fetch_sql_dumps.py de
+    ```
 
-To populate the graph with new data:
-1.  Place processed CSV files in `data/neo4j_bulk/`.
-2.  Run `./dev.sh import` to trigger the bulk importer. **Warning:** This will wipe the current database.
+2.  **Metadata Ingestion:** Parses SQL dumps and populates the SQLite database.
+    ```bash
+    python3 core/sqlite_loader.py --init --lang de
+    ```
 
-## Development
+3.  **Topology Generation:** Extracts the link graph and generates import-ready CSV files.
+    ```bash
+    python3 core/tools/prepare_neo4j_csv.py --lang de
+    ```
 
-*   **Backend Code:** Located in `app/`. The main graph logic is in `app/routers/graph.py`.
-*   **Frontend Code:** Located in `frontend/src/`. The main visualization component is `WikiNebula.tsx`.
-*   **Tools:** The `tools/` directory contains scripts for verifying algorithms and debugging the graph structure.
+4.  **Bulk Import:** Loads the CSV files into the Neo4j container.
+    ```bash
+    bash core/tools/run_neo4j_import.sh de
+    ```
+
+## Project Structure
+
+*   `core/`: Core ETL logic, parsers, and processing scripts.
+*   `app/`: FastAPI backend application.
+*   `frontend/`: Next.js visualization interface.
+*   `config/`: Configuration for infrastructure and language-specific parsing rules.
+*   `data/`: Directory for raw dumps, SQLite databases, and Neo4j volume data (not versioned).
+*   `tools/`: Verification and maintenance scripts.
+
+## Data Validation
+
+The project employs validation steps at key stages of the pipeline:
+*   **Dump Integrity:** Checks file existence and sizes.
+*   **Schema Validation:** Ensures SQLite tables match the expected schema.
+*   **Post-Import Verification:** Validates node/edge counts, connectivity, and data constraints using `tools/verify_neo4j_graph.py`.
+
+## License
+
+MIT

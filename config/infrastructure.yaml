@@ -1,0 +1,31 @@
+# WikiGraph Infrastructure Configuration
+# Defines ports and container names for multi-language architecture.
+
+languages:
+  pl:
+    enabled: true
+    container_name: "neo4j-pl"
+    ports:
+      http: 7474
+      bolt: 7687
+    memory:
+      heap: "4G"
+      pagecache: "4G"
+    paths:
+      db: "data/db/pl.db"
+      csv: "data/neo4j_bulk/pl"
+      neo4j_data: "data/neo4j_data/pl"
+
+  de:
+    enabled: true
+    container_name: "neo4j-de"
+    ports:
+      http: 7475
+      bolt: 7688
+    memory:
+      heap: "4G"
+      pagecache: "4G"
+    paths:
+      db: "data/db/de.db"
+      csv: "data/neo4j_bulk/de"
+      neo4j_data: "data/neo4j_data/de"

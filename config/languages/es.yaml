@@ -1,0 +1,28 @@
+language:
+  code: es
+  name: Wikipedia
+  local_name: es
+wikipedia:
+  dbname: eswiki
+  redirect_keywords:
+  - '#REDIRECCIÓN'
+  - '#REDIRECCION'
+  - '#REDIRECT'
+  namespace_prefixes:
+    file: &id001
+    - 'File:'
+    - 'Archivo:'
+    - 'Image:'
+    - 'Imagen:'
+    template:
+    - 'Template:'
+    - 'Plantilla:'
+    category:
+    - 'Category:'
+    - 'Categoría:'
+    - 'CAT:'
+text_cleanup:
+  file_patterns: *id001
+text_processing:
+  has_spaces: true
+  encoding: utf-8

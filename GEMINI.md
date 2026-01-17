@@ -15,6 +15,8 @@ WikiGraph is a system designed to process Wikipedia data (dumps) and build a lar
 - `core/engine/`: Neo4j schema setup and engine logic.
 - `data/`: Raw and processed Wikipedia data.
 - `tools/`: CLI tools for monitoring and graph verification.
+- `frontend/`: **Full-Stack Frontend.** The production Next.js application designed to connect to the Python/Neo4j backend.
+- `website/`: **Static Demo Frontend.** A standalone Next.js application deployed to GitHub Pages. It simulates backend features (Search, Expansion) using `GraphService` and a pre-loaded JSON dataset (`demo-nebula.json`).
 
 ## Project Conventions
 - Uses `requirements.txt` for dependency management.
