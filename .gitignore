@@ -1,66 +1,51 @@
-# Data directories (large files)
-data/
-raw_data_wiki/
-backup/
-backups/
-output/
-processed_batches/
-processed_batches_*/
-databases/
-
-# Node
-node_modules/
-npm-debug.log
-yarn-error.log
-.next/
-
-# Python virtual environments
-venv/
-.venv/
-venv_linux/
+# Python
 __pycache__/
-*.pyc
-*.pyo
-*.pyd
+*.py[cod]
+*$py.class
+*.so
 .Python
-env/
-pip-log.txt
-pip-delete-this-directory.txt
-.tox/
-.coverage
-.coverage.*
-.cache
-nosetests.xml
-coverage.xml
-*.cover
-*.log
-.git
-.mypy_cache
-.pytest_cache
-.hypothesis
+venv*/
+env*/
+.venv/
+
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Data files (LARGE - DO NOT COMMIT)
+data/
+# Exceptions (if we want to keep structure, but generally ignore all data)
+!data/.gitkeep
+
+# Backups
+*.tar.gz
+*.zip
+*.7z
 
 # Logs
-logs/
 *.log
-wget-log*
+logs/
 
-# IDE files
+# Docker
+docker/*.tar
+*.dockerignore
+
+# IDE
 .vscode/
 .idea/
 *.swp
 *.swo
-*~
 
-# OS files
+# OS
 .DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
-ehthumbs.db
 Thumbs.db
 
 # Temporary files
 *.tmp
 *.temp
-*.bak
+
+# Environment variables
+.env
+.env.local

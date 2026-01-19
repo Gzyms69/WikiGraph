@@ -29,3 +29,24 @@ languages:
       db: "data/db/de.db"
       csv: "data/neo4j_bulk/de"
       neo4j_data: "data/neo4j_data/de"
+
+test:
+  languages:
+    pl:
+      enabled: true
+      container_name: "neo4j-pl-test"
+      ports:
+        http: 7476
+        bolt: 7689
+      paths:
+        neo4j_data: "data/neo4j_data/pl" # Same data
+      read_only: true
+    de:
+      enabled: true
+      container_name: "neo4j-de-test"
+      ports:
+        http: 7477
+        bolt: 7690
+      paths:
+        neo4j_data: "data/neo4j_data/de" # Same data
+      read_only: true

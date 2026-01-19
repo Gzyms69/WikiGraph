@@ -1,14 +1,15 @@
 # WikiGraph Rebuild Plan: Hybrid, Multi-Source Knowledge Graph Lab
 
-## 🚧 Progress Tracker (Updated: 2026-01-15)
+## 🚧 Progress Tracker (Updated: 2026-01-17)
 *   **Protocol:** Adopted "Fail-Safe" pipeline with strict validation gates.
-*   **Tooling:** Selected `mwsql` library for robust SQL parsing (Gate 0 Passed).
-*   **Current Status:** **Phase 4 Complete (Polish Graph Validated).**
-    *   Neo4j graph built and verified: 1,675,749 nodes, 99,903,827 edges.
-    *   Graph is live in `neo4j-pl` container.
-*   **Next Step:** **Phase 4A (Multi-Language Infrastructure).**
-    *   Implement multi-container architecture (one Neo4j instance per language).
-    *   Execute full pipeline for German Wikipedia (`dewiki`).
+*   **Previous Status:** **Phase 4A Complete (Multi-Language Infrastructure).**
+    *   Neo4j containers isolated (`neo4j-pl`, `neo4j-de`).
+    *   Polish Graph: 1.67M Nodes, 99.9M Edges.
+    *   German Graph: 3.10M Nodes, 149.4M Edges.
+*   **Current Status:** **Phase 5: Unified Backend API (In Progress).**
+    *   Gate 5A.1 (Skeleton): Passed.
+    *   Gate 5A.2 (Connection Manager): Passed.
+    *   **Gate 5A.3 (Health Endpoint):** Pending Validation.
 
 ## 🛡️ Fail-Safe Implementation Protocol
 **Core Principle:** "Make it work (correctly), then make it fast."
@@ -17,7 +18,7 @@
 3.  **Gate 2 (Data Integrity):** Category names must be readable UTF-8, resolving `cl_target_id`.
 4.  **Gate 3 (Clean CSVs):** Checksum verified before Graph DB import.
 5.  **Gate 4 (Graph Verified):** Neo4j node/edge counts match CSVs; connectivity validated; uniqueness constraints active.
-6.  **Gate 5 (Multi-Language):** Character encoding and schema validation specific to the target language.
+6.  **Gate 5 (Backend Integration):** API successfully routes queries to correct container and handles degradation.
 
 ## 1. Overview & Goals
 
@@ -25,9 +26,9 @@
 1.  **The Offline Lab:** A full-featured, local installation built from Wikipedia dumps, offering researchers complete control, offline access, and deep metadata (categories, infoboxes).
 2.  **The Online Showcase:** A public, deployable instance that uses the Wikidata Query Service (WDQS) to demonstrate global, cross-language graph capabilities with minimal setup overhead.
 
-**Architecture Strategy:** **Strict Isolation.** Each language lives in its own dedicated Neo4j container. This prevents encoding conflicts, schema collisions, and allows independent scaling. A unified API layer routes queries to the correct container.
+**Architecture Strategy:** **Virtual Bridge.** The Backend API acts as the federation layer, orchestrating queries across isolated language databases. This avoids the complexity of a physical bridge database while enabling linear scalability.
 
-## 2. Revised System Architecture (Multi-Container)
+## 2. Revised System Architecture (Virtual Bridge)
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
@@ -64,7 +65,7 @@ We now manage two parallel data flows.
 | **Direct SQL/XML Dumps** | Process raw database dumps line-by-line. | Complete article graph, full metadata (categories, infoboxes, summaries), and text for selected languages. | **Primary source for the Offline Lab.** Builds the localized Neo4j+SQLite+Text archive. Provides the deepest, most customizable analysis. |
 | **Wikidata Query Service (WDQS)** | Query the live, global Wikidata graph via SPARQL. | Instant access to the global web of concepts (`wdt:P31`/instance of, `wdt:P279`/subclass of) and interlanguage links (`schema:about`). | **Primary source for the Online Showcase.** Powers the public demo with zero build time. **Augments the Offline Lab** by filling in missing interlanguage links or providing a baseline global structure. |
 
-## 4. Detailed Data Pipeline & Storage Schema (Extended)
+## 4. Detailed Data Pipeline & Storage Schema
 
 ### 4.1. Tier 1: The Graph Layer (Source-Agnostic)
 *   **Purpose:** Execute graph algorithms and pathfinding.
@@ -77,22 +78,18 @@ We now manage two parallel data flows.
 
 ## 6. Phased Implementation Plan (Revised)
 
-**Phase 4A: Multi-Language Infrastructure (Current)**
-*   [ ] Create `config/languages.yaml` to define ports and paths.
-*   [ ] Refactor `dev.sh` to support multi-container orchestration.
-*   [ ] **German Import:**
-    *   Download `dewiki` dumps (Gate 4A-0: Checksums).
-    *   Run SQLite ingestion (`de.db`).
-    *   Generate CSVs (`data/neo4j_bulk/de/`).
-    *   Import into `neo4j-de` container.
-*   *Ease: Medium. Confidence: High.*
+**Phase 4A: Multi-Language Infrastructure (Complete)**
+*   [x] Create `config/infrastructure.yaml` to define ports and paths.
+*   [x] Refactor `dev.sh` to support multi-container orchestration.
+*   [x] **German Import:** Download, Ingest, Topology, Import.
 
-**Phase 5: Unified Backend API (Week 5)**
-*   [ ] Update backend to read `languages.yaml`.
-*   [ ] Implement `GraphService` factory to select the correct driver (`bolt://localhost:7687` vs `7688`).
-*   [ ] Verify API connectivity to both graphs.
+**Phase 5: Unified Backend API (Current)**
+*   [x] **Gate 5A.1:** Backend Skeleton & Config.
+*   [x] **Gate 5A.2:** Connection Manager & Degradation.
+*   [ ] **Gate 5A.3:** Health Endpoint.
+*   [ ] **Gate 5A.INT:** Integration & Cross-Language Queries.
 
-**Phase 6: Hybrid Features (Week 6)**
+**Phase 6: Hybrid Features (Future)**
 *   [ ] WDQS Integration.
 *   [ ] Cross-language search.
 
