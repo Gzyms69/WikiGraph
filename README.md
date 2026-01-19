@@ -4,7 +4,7 @@ WikiGraph is a tool designed to process Wikipedia database dumps and convert the
 
 ## Overview
 
-The system supports multiple languages (currently configured for Polish and German) by running isolated Neo4j instances via Docker. It handles the full ETL pipeline: downloading raw SQL dumps, parsing them, resolving redirects, generating graph CSVs, and performing a bulk import into the database.
+The system supports multiple languages (currently **Polish** and **German**) by running isolated Neo4j instances via Docker. It handles the full ETL pipeline: downloading raw SQL dumps, parsing them, resolving redirects, generating graph CSVs, and performing a bulk import into the database. A unified FastAPI backend orchestrates queries across these databases.
 
 ## Architecture
 
@@ -41,6 +41,12 @@ To start the environment for a specific language (e.g., Polish):
 ./dev.sh start pl
 ```
 
+To start all languages:
+
+```bash
+./dev.sh start all
+```
+
 To check the status of services:
 
 ```bash
@@ -74,7 +80,10 @@ To process a new language (e.g., German), execute the pipeline scripts in the fo
 ## Project Structure
 
 *   `core/`: Core ETL logic, parsers, and processing scripts.
-*   `app/`: FastAPI backend application.
+*   `app/`: FastAPI backend service.
+    *   `app/core/`: Configuration and logging.
+    *   `app/services/`: Database connection managers.
+    *   `app/api/routers/`: API endpoints.
 *   `frontend/`: Next.js visualization interface.
 *   `config/`: Configuration for infrastructure and language-specific parsing rules.
 *   `data/`: Directory for raw dumps, SQLite databases, and Neo4j volume data (not versioned).
@@ -83,10 +92,11 @@ To process a new language (e.g., German), execute the pipeline scripts in the fo
 ## Data Validation
 
 The project employs validation steps at key stages of the pipeline:
-*   **Dump Integrity:** Checks file existence and sizes.
-*   **Schema Validation:** Ensures SQLite tables match the expected schema.
-*   **Post-Import Verification:** Validates node/edge counts, connectivity, and data constraints using `tools/verify_neo4j_graph.py`.
+*   **Gate 1-3:** Data Ingestion Integrity.
+*   **Gate 4:** Pre-Import Safety Checks.
+*   **Gate 5:** Post-Import Graph Verification (Connectivity, Integrity).
+*   **Gate 5A:** Backend Integration & Health Checks.
 
 ## License
 
-MIT
+GPLv3
