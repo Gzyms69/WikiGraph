@@ -1,39 +1,37 @@
 # WikiGraph
 
-**Current Status (2026-01-27):**
-- ✅ German infobox extraction validated (works with prefix pattern)
-- 🔍 Polish infbox complexity analyzed (requires suffix pattern support)
-- 📊 Documentation updated with latest findings
-- 🎯 Focus remains on German-first approach
+**Current Status (January 27, 2026):**
+- German infobox extraction validated (works with prefix pattern).
+- Polish infobox complexity analyzed (requires suffix pattern support).
+- Documentation updated with latest findings.
+- Focus remains on German-first approach.
 
-**For latest details:** See `PROJECT_STATUS.md` and `devlog.md`
+**For latest details:** See `PROJECT_STATUS.md` and `devlog.md`.
 
-WikiGraph is a tool designed to process Wikipedia database dumps and convert them into a knowledge graph using Neo4j for topology and SQLite for metadata storage. It allows for offline analysis, pathfinding, and visualization of Wikipedia's link structure.
+WikiGraph is a language-agnostic tool designed to process Wikipedia database dumps and convert them into a knowledge graph using Neo4j for topology and SQLite for metadata storage. It allows for offline analysis, pathfinding, and visualization of Wikipedia's link structure for any configured language.
 
 ## Overview
 
-The system supports multiple languages (currently **Polish** and **German**) by running isolated Neo4j instances via Docker. It handles the full ETL pipeline: downloading raw SQL dumps, parsing them, resolving redirects, generating graph CSVs, and performing a bulk import into the database. A unified FastAPI backend orchestrates queries across these databases.
+The system supports multiple languages by running isolated Neo4j instances via Docker. It handles the full ETL pipeline: downloading raw SQL dumps, parsing them, resolving redirects, generating graph CSVs, and performing a bulk import into the database. A unified FastAPI backend orchestrates queries across these databases dynamically.
 
 ## Architecture
 
-The project is structured as a set of services and a core processing pipeline:
+The project is structured as a set of services and a core processing pipeline. The backend routes requests to the appropriate language container based on the URL path.
 
 ```
 ┌─────────────────────────────────────────────────┐
 │            Unified Backend API (FastAPI)         │
-│  (Routes: /api/pl/... → localhost:7474)         │
-│  (Routes: /api/de/... → localhost:7475)         │
+│  (Routes: /api/{lang}/... → neo4j-{lang}:7474)  │
 └─────────────────────────────────────────────────┘
                     ↓
 ┌──────────────┐      ┌──────────────┐
 │ Docker       │      │ Docker       │
 │ Container    │      │ Container    │
-│ neo4j-pl     │      │ neo4j-de     │
-│ Port: 7474   │      │ Port: 7475   │
+│ neo4j-{lang} │      │ neo4j-{lang} │
 └──────────────┘      └──────────────┘
 ```
 
-## Data Model (Updated Jan 2026)
+## Data Model
 
 The system uses a dual-database architecture optimized for performance and memory efficiency:
 
@@ -49,7 +47,10 @@ The system uses a dual-database architecture optimized for performance and memor
 ### 2. SQLite (Metadata & Content)
 *   **Purpose:** Stores rich metadata, titles, text, and computed statistics.
 *   **Tables:**
-    *   `pages`: Page metadata (id, title, namespace, length) + **Degrees** (out_degree, in_degree) + **Infobox** (json).
+    *   `pages`: Page metadata. Columns:
+        *   `page_id`, `title`, `namespace`, `len`
+        *   `out_degree`, `in_degree` (Pre-calculated graph metrics)
+        *   `infobox`: JSON field storing extracted structured data (e.g., birth dates, coordinates).
     *   `id_mapping`: Maps `page_id` to `qid`.
     *   `link_targets`: Raw target strings from dumps.
     *   `category_links`: Category hierarchy (if imported).
@@ -70,7 +71,7 @@ To start the environment for a specific language (e.g., Polish):
 ./dev.sh start pl
 ```
 
-To start all languages:
+To start all configured languages:
 
 ```bash
 ./dev.sh start all
@@ -84,38 +85,34 @@ To check the status of services:
 
 ### Import Pipeline
 
-To process a new language (e.g., German), execute the pipeline scripts in the following order:
+To process a new language (e.g., German 'de' or Spanish 'es'), execute the pipeline scripts:
 
 1.  **Download Data:** Fetches the required SQL dumps from Wikimedia.
     ```bash
-    python3 core/tools/fetch_sql_dumps.py de
+    python3 core/tools/fetch_sql_dumps.py <lang_code>
     ```
 
 2.  **Metadata Ingestion:** Parses SQL dumps and populates the SQLite database.
     ```bash
-    python3 core/sqlite_loader.py --init --lang de
+    python3 core/sqlite_loader.py --init --lang <lang_code>
     ```
 
 3.  **Topology Generation:** Extracts the link graph and generates import-ready CSV files.
     ```bash
-    python3 core/tools/prepare_neo4j_csv.py --lang de
+    python3 core/tools/prepare_neo4j_csv.py --lang <lang_code>
     ```
 
 4.  **Bulk Import:** Loads the CSV files into the Neo4j container.
     ```bash
-    bash core/tools/run_neo4j_import.sh de
+    bash core/tools/run_neo4j_import.sh <lang_code>
     ```
 
 ## Project Structure
 
 *   `core/`: Core ETL logic, parsers, and processing scripts.
 *   `app/`: FastAPI backend service.
-    *   `app/core/`: Configuration and logging.
-    *   `app/services/`: Database connection managers.
-    *   `app/api/routers/`: API endpoints.
-*   `frontend/`: Next.js visualization interface.
 *   `config/`: Configuration for infrastructure and language-specific parsing rules.
-*   `data/`: Directory for raw dumps, SQLite databases, and Neo4j volume data (not versioned).
+*   `data/`: Directory for raw dumps, SQLite databases, and Neo4j volume data.
 *   `tools/`: Verification and maintenance scripts.
 
 ## Data Validation

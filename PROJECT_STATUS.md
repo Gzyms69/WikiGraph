@@ -2,7 +2,7 @@
 
 ## Recent Milestones (January 22, 2026)
 
-### ✅ Gate 5B.3: Cross-Language Traversal (COMPLETED)
+### Gate 5B.3: Cross-Language Traversal (COMPLETED)
 - **Algorithm:** Level-Synchronous BFS with per-node limit distribution (Fixing global starvation bug).
 - **Hard Limits:** Max Depth: 3, Limit per Depth: 200, Total Nodes: 1000.
 - **Safety:** Memory monitoring (1GB threshold) and 3s per-query timeouts implemented.
@@ -14,7 +14,7 @@
     - 200-node traversal: ~0.18s.
     - Throughput: ~3000-6000 edges/sec.
 
-### ✅ Gate 5B.3.7: Import Pipeline Analysis (COMPLETED)
+### Gate 5B.3.7: Import Pipeline Analysis (COMPLETED)
 - **Status:** Validated CSV generation logic.
 - **Findings:** Original import scripts failed to include `title` in CSVs.
 - **Remediation:** Verified that patching scripts (`enrich_neo4j_titles.py`) successfully corrected the live database (100% title coverage achieved).

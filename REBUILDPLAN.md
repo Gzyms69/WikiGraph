@@ -1,6 +1,6 @@
 # WikiGraph Rebuild Plan: Hybrid, Multi-Source Knowledge Graph Lab
 
-## 🚧 Progress Tracker (Updated: 2026-01-19)
+##  Progress Tracker (Updated: 2026-01-19)
 *   **Protocol:** Adopted "Fail-Safe" pipeline with strict validation gates.
 *   **Previous Status:** **Phase 4A Complete (Multi-Language Infrastructure).**
 *   **Current Status:** **Cleanup Reorganization COMPLETED.**

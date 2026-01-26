@@ -186,12 +186,12 @@
 3. MetadataManager with batch title fetching for neighbors.
 
 ### Validation Results:
-- Structure: ✅ Neighbors present with qid and title.
-- Accuracy: ✅ 5/5 QIDs (100% title match with SQLite).
-- Pagination: ✅ Verified limit/offset logic.
-- Memory: ✅ Delta +37.5MB (Limit 50MB).
-- Graceful Degradation: ✅ Confirmed.
-- Rollback: ✅ Tested and working.
+- Structure:  Neighbors present with qid and title.
+- Accuracy:  5/5 QIDs (100% title match with SQLite).
+- Pagination:  Verified limit/offset logic.
+- Memory:  Delta +37.5MB (Limit 50MB).
+- Graceful Degradation:  Confirmed.
+- Rollback:  Tested and working.
 
 ### Next Steps:
 Proceed to Gate 5B.2.
@@ -312,9 +312,9 @@ Proceed to Gate 5B.2.
 - The Neo4j graph represents the "Wikidata-linked subset" of Wikipedia.
 
 ### Binary Success Verification:
-- [✅] Root cause identified and documented.
-- [✅] Infobox column confirmed as JSON and empty.
-- [✅] All commands executed, outputs captured.
+- [] Root cause identified and documented.
+- [] Infobox column confirmed as JSON and empty.
+- [] All commands executed, outputs captured.
 
 ### Issues Found:
 - The on-disk CSV (`data/neo4j_bulk/pl/nodes.csv`) is stale (contains redirects), but this is expected as we haven't re-run the full import. The code logic is fixed.
@@ -358,9 +358,9 @@ Proceed to Gate 5B.2.
 - Supporting Evidence: `Nicolò_Machiavelli` and `Equador` are high-profile articles that appear in the sample of nodes dropped by the JOIN with `id_mapping`.
 
 ### Binary Success Verification:
-- [✅] Root cause identified and documented.
-- [✅] Infobox column confirmed as JSON and empty.
-- [✅] All commands executed, outputs captured.
+- [] Root cause identified and documented.
+- [] Infobox column confirmed as JSON and empty.
+- [] All commands executed, outputs captured.
 
 ### Issues Found:
 - None. German data is consistent with the "Minimal Neo4j, Rich SQLite" architecture.
