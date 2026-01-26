@@ -1,32 +1,48 @@
 # WikiGraph Rebuild Plan: Hybrid, Multi-Source Knowledge Graph Lab
 
-## 🚧 Progress Tracker (Updated: 2026-01-17)
+## 🚧 Progress Tracker (Updated: 2026-01-19)
 *   **Protocol:** Adopted "Fail-Safe" pipeline with strict validation gates.
 *   **Previous Status:** **Phase 4A Complete (Multi-Language Infrastructure).**
-    *   Neo4j containers isolated (`neo4j-pl`, `neo4j-de`).
-    *   Polish Graph: 1.67M Nodes, 99.9M Edges.
-    *   German Graph: 3.10M Nodes, 149.4M Edges.
-*   **Current Status:** **Phase 5: Unified Backend API (In Progress).**
-    *   Gate 5A.1 (Skeleton): Passed.
-    *   Gate 5A.2 (Connection Manager): Passed.
-    *   **Gate 5A.3 (Health Endpoint):** Pending Validation.
+*   **Current Status:** **Cleanup Reorganization COMPLETED.**
+    *   Legacy code archived in `legacy/`.
+    *   Backend routing fixed.
+    *   Ready for Gate 5B.3.
 
-## 🛡️ Fail-Safe Implementation Protocol
-**Core Principle:** "Make it work (correctly), then make it fast."
-1.  **Gate 0 (Library Validated):** `mwsql` confirmed as viable parser.
-2.  **Gate 1 (Row Count):** `pages` table must match official Wikipedia stats (~1.6M for PL) ±1%.
-3.  **Gate 2 (Data Integrity):** Category names must be readable UTF-8, resolving `cl_target_id`.
-4.  **Gate 3 (Clean CSVs):** Checksum verified before Graph DB import.
-5.  **Gate 4 (Graph Verified):** Neo4j node/edge counts match CSVs; connectivity validated; uniqueness constraints active.
-6.  **Gate 5 (Backend Integration):** API successfully routes queries to correct container and handles degradation.
+## 1. Comprehensive Legacy Feature Audit (The "Gold Standard")
 
-## 1. Overview & Goals
+We must eventually restore these features from the legacy codebase (`legacy/backend_old/routers/`).
 
-**Primary Goal:** Build a versatile, research-grade knowledge graph system that serves two primary use cases:
-1.  **The Offline Lab:** A full-featured, local installation built from Wikipedia dumps, offering researchers complete control, offline access, and deep metadata (categories, infoboxes).
-2.  **The Online Showcase:** A public, deployable instance that uses the Wikidata Query Service (WDQS) to demonstrate global, cross-language graph capabilities with minimal setup overhead.
+### 1.1. Graph Topology & Traversal (`graph.py`)
+*   **Weighted Neighbors (`/weighted-neighbors`):**
+    *   **Logic:** Calculates neighbor relevance using a weighted sum of **Jaccard Coefficient**, **Adamic-Adar Index**, and **Personalized PageRank**.
+    *   **Normalization:** Min-Max normalization of scores within the candidate set.
+    *   **Filtering:** Excluded "List of", "Category:", etc.
+*   **Shortest Path (`/shortest-path`):**
+    *   **Logic:** Standard Neo4j `shortestPath` (BFS).
+    *   **Feature:** Handled Start==End edge case.
+*   **Nebula Sample (`/nebula`):**
+    *   **Logic:** Fetched top PageRank nodes per language to create a "Universe" visualization.
+    *   **Feature:** Balanced sampling (e.g., 50 PL, 50 DE).
+*   **Languages (`/languages`):** Listed available datasets.
 
-**Architecture Strategy:** **Virtual Bridge.** The Backend API acts as the federation layer, orchestrating queries across isolated language databases. This avoids the complexity of a physical bridge database while enabling linear scalability.
+### 1.2. Network Analytics (`analytics.py`)
+These features used the Neo4j Graph Data Science (GDS) library.
+*   **PageRank (`/pagerank`):** Global influence scoring.
+*   **Bridges (`/bridges`):** Used **Betweenness Centrality** to find nodes connecting clusters.
+*   **Silos (`/silos`):** Used **Louvain Modularity** to find isolated communities.
+*   **K-Core (`/k-core`):** Decomposed graph shells to find the dense core.
+*   **Cross-Lingual Gaps (`/gaps`):** Found high-degree nodes in Lang A missing in Lang B.
+
+### 1.3. Search & ML
+*   **Keyword Search (`/search/keyword`):** Full-text Lucene index on `Article.title`.
+*   **Embeddings (`/ml/embeddings`):** FastRP (Random Projection) node embeddings (16-dim).
+
+### 1.4. Frontend Features (`frontend/`)
+*   **Visual Engine:** `3d-force-graph` (Three.js) rendering.
+*   **Control Deck:** Search, Language Toggle, Algorithm Weight Sliders (Jaccard/AA/PPR).
+*   **Node Details:** Slide-out panel with abstract and metadata.
+
+---
 
 ## 2. Revised System Architecture (Virtual Bridge)
 
@@ -56,147 +72,72 @@
         └─────────┘            └─────────┘                            │
 ```
 
-## 3. Data Source Strategy & Extraction
-
-We now manage two parallel data flows.
-
-| **Data Source** | **Core Idea** | **What It Provides** | **Our Usage & Integration** |
-| :--- | :--- | :--- | :--- |
-| **Direct SQL/XML Dumps** | Process raw database dumps line-by-line. | Complete article graph, full metadata (categories, infoboxes, summaries), and text for selected languages. | **Primary source for the Offline Lab.** Builds the localized Neo4j+SQLite+Text archive. Provides the deepest, most customizable analysis. |
-| **Wikidata Query Service (WDQS)** | Query the live, global Wikidata graph via SPARQL. | Instant access to the global web of concepts (`wdt:P31`/instance of, `wdt:P279`/subclass of) and interlanguage links (`schema:about`). | **Primary source for the Online Showcase.** Powers the public demo with zero build time. **Augments the Offline Lab** by filling in missing interlanguage links or providing a baseline global structure. |
-
-## 4. Detailed Data Pipeline & Storage Schema
-
-### 4.1. Tier 1: The Graph Layer (Source-Agnostic)
-*   **Purpose:** Execute graph algorithms and pathfinding.
-*   **Schema:** Minimal and QID-based.
-*   **Isolation:** Separate `neo4j-community` containers for each language to bypass Community Edition single-db limits and ensure full isolation.
-
-### 4.2. Tier 2: SQLite Metadata Hub (Distributed)
-*   **Purpose:** Central, fast access to all metadata.
-*   **Schema:** Per-language databases (`pl.db`, `de.db`) are preferred during ingestion to allow parallel processing. The API connects to the specific DB based on the query context.
-
-## 6. Phased Implementation Plan (Revised)
+## 3. Phased Implementation Plan (Revised)
 
 **Phase 4A: Multi-Language Infrastructure (Complete)**
-*   [x] Create `config/infrastructure.yaml` to define ports and paths.
-*   [x] Refactor `dev.sh` to support multi-container orchestration.
+*   [x] Create `config/infrastructure.yaml`.
+*   [x] Refactor `dev.sh`.
 *   [x] **German Import:** Download, Ingest, Topology, Import.
 
 **Phase 5: Unified Backend API (Current)**
 *   [x] **Gate 5A.1:** Backend Skeleton & Config.
 *   [x] **Gate 5A.2:** Connection Manager & Degradation.
-*   [ ] **Gate 5A.3:** Health Endpoint.
-*   [ ] **Gate 5A.INT:** Integration & Cross-Language Queries.
+*   [x] **Gate 5A.3:** Health Endpoint.
+*   [x] **Gate 5B.1:** QID Endpoints (Merged).
+*   [x] **Gate 5B.2:** Language Endpoints (Pathfinding).
+*   [ ] **Gate 5B.3:** Cross-Language Traversal (BFS).
 
-**Phase 6: Hybrid Features (Future)**
-*   [ ] WDQS Integration.
-*   [ ] Cross-language search.
+### Phase 3: Polish Infobox Solution (Enhanced Scope)
 
-## 7. Potential Roadblocks & Mitigations
+#### Gate 5B.5.6: Polish Infobox Pattern Analysis (Enhanced)
+**New understanding:** Two distinct patterns exist (prefix and suffix)
+
+**Analysis tasks:**
+1. **Pattern distribution analysis:**
+   - Sample 100,000 Polish articles
+   - Categorize by pattern: prefix, suffix, both, none
+   - Calculate percentages and article types
+
+2. **Configuration strategy:**
+   - Option A: Add `template_suffixes: ['infobox']` to `pl.yaml`
+   - Option B: Change detection logic to "contains 'infobox'"
+   - Option C: Hybrid approach (both prefix and suffix lists)
+
+3. **Parameter mapping validation:**
+   - Verify parameter mappings work for both pattern types
+   - Check for template name variations
+
+#### Gate 5B.5.7: Polish Infobox Extraction (Updated)
+**Implementation requirements:**
+- Support both prefix and suffix detection
+- Handle potential template name conflicts
+- Apply parameter mapping correctly
+- Store as JSON array with pattern type metadata
+
+**Phase 6: Search & Advanced Features (The "Legacy Restoration")**
+*   [ ] **Gate 6.1:** Keyword Search (Re-implement Lucene/Text index).
+*   [ ] **Gate 6.2:** Weighted Neighbors (Port Jaccard/AA logic to new Multi-DB structure).
+*   [ ] **Gate 6.3:** Analytics (Port GDS calls - requires GDS installation in containers).
+
+## 4. Potential Roadblocks & Mitigations
 
 | **Roadblock** | **Risk Level** | **Mitigation Strategy** |
 | :--- | :--- | :--- |
-| **Resource Contention** | High | Running multiple Neo4j instances requires RAM. **Mitigation:** Use strict Docker memory limits (4GB per container). Only start the language being actively queried if RAM is tight. |
-| **German Umlauts** | Medium | Character encoding issues. **Mitigation:** Strict UTF-8 enforcement in `mwsql` and CSV generation. New "Gate 5" validation step. |
+| **GDS Compatibility** | High | GDS on multiple databases requires Enterprise or careful orchestration. **Strategy:** Run GDS on one language at a time or aggregate data in memory. |
+| **Search Performance** | Medium | Lucene across 2 DBs + SQLite? **Strategy:** Use SQLite FTS5 for title search (fast, low overhead). |
 
-## 8. Success Metrics & Validation
+## 5. Success Metrics
 
 *   **Metric:** Simultaneous query of Polish and German graphs via the API.
 *   **Metric:** Zero data cross-contamination.
 
-## Legacy Functionality Documentation (Generated by Cleanup Script)
+## 6. Architectural Principle: Minimal Neo4j (Gate 5B.3.9)
 
-### Backend Routers (Moved to `legacy/backend_old/routers/`)
+**Decision (Jan 2026):** Neo4j must remain lean to maximize graph traversal performance and minimize memory footprint. Metadata should reside in SQLite.
 
-#### analytics.py
-
-
-**Endpoints:**
-  - @router.post("/initialize")
-  - @router.post("/pagerank")
-  - @router.post("/bridges")
-  - @router.post("/silos")
-  - @router.post("/k-core")
-  - @router.get("/gaps")
-
-#### graph.py
-
-
-**Endpoints:**
-  - @router.get("/languages")
-  - @router.post("/bulk-weighted-neighbors")
-  - @router.get("/shortest-path")
-  - @router.get("/nebula")
-  - @router.post("/weighted-neighbors")
-  - @router.get("/recommendations")
-
-#### ml.py
-
-
-**Endpoints:**
-  - @router.post("/embeddings")
-
-#### search.py
-
-
-**Endpoints:**
-  - @router.get("/keyword")
-
-
-### Frontend Files (To be moved to `legacy/frontend_old/`)
-
-- ./website/next.config.js
-- ./website/postcss.config.js
-- ./website/tailwind.config.js
-- ./tests/e2e_site_check.js
-
-## Production Frontend (`frontend/`)
-
-### Overview
-The production frontend is a Next.js (React) application with 3D graph visualization.
-
-### Dependencies (Key)
-- `3d-force-graph`: 3D force-directed graph rendering
-- `react-force-graph-3d`: React wrapper for 3D force graph
-- `axios`: HTTP client for API calls
-- `three.js`: 3D graphics library
-- `next`: React framework
-
-### Architecture
-```
-frontend/
-├── src/components/           # React components
-│   └── nebula/              # Graph visualization components
-│       └── InitializationScreen.tsx  # API integration example
-├── package.json             # Dependencies listed above
-├── next.config.ts           # Next.js configuration
-└── tsconfig.json            # TypeScript configuration
-```
-
-### API Integration
-- Uses `axios` for HTTP requests
-- API base URL: `${API_BASE}/graph/languages` (from InitializationScreen.tsx)
-- Expected to integrate with backend endpoints
-
-### Current Status
-- Codebase exists but integration with new backend (Gates 5B.1, 5B.2) may need updates
-- 3D graph visualization components present
-- Requires connection to updated API endpoints
-
-### Rebuild Notes
-1. Update API endpoints to match new backend routes (`/api/...`)
-2. Test integration with language-specific endpoints
-3. Verify 3D graph works with new data structures
-4. Consider updating to use QID-based queries instead of title-based
-
-## Static Documentation Site (`website/`) - MOVED TO LEGACY
-**Location:** `legacy/frontend_old/website/`
-**Purpose:** GitHub Pages static documentation and demo
-**Technology:** Next.js static site
-**Note:** This is separate from the production frontend and was used for documentation only.
-
-## Legacy E2E Test
-**Location:** `legacy/tests/e2e_site_check.js`
-**Purpose:** End-to-end testing of the old frontend
-**Status:** Requires updating for new frontend structure
+*   **Neo4j:** Stores ONLY graph topology (Nodes `QID` and Relationships `LINKS_TO`).
+*   **SQLite:** Stores ALL node attributes (`title`, `out_degree`, `in_degree`, `infobox`, `text`).
+*   **Migration Plan:**
+    1.  **Schema Update:** Add `out_degree` and `in_degree` columns to SQLite `pages` table.
+    2.  **Cleanup:** Remove `title` and degree properties from Neo4j nodes.
+    3.  **API Update:** Refactor Backend to fetch metadata from SQLite using QIDs returned by Neo4j.

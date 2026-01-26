@@ -1,5 +1,13 @@
 # WikiGraph
 
+**Current Status (2026-01-27):**
+- ✅ German infobox extraction validated (works with prefix pattern)
+- 🔍 Polish infbox complexity analyzed (requires suffix pattern support)
+- 📊 Documentation updated with latest findings
+- 🎯 Focus remains on German-first approach
+
+**For latest details:** See `PROJECT_STATUS.md` and `devlog.md`
+
 WikiGraph is a tool designed to process Wikipedia database dumps and convert them into a knowledge graph using Neo4j for topology and SQLite for metadata storage. It allows for offline analysis, pathfinding, and visualization of Wikipedia's link structure.
 
 ## Overview
@@ -24,6 +32,27 @@ The project is structured as a set of services and a core processing pipeline:
 │ Port: 7474   │      │ Port: 7475   │
 └──────────────┘      └──────────────┘
 ```
+
+## Data Model (Updated Jan 2026)
+
+The system uses a dual-database architecture optimized for performance and memory efficiency:
+
+### 1. Neo4j (Graph Topology)
+*   **Purpose:** Stores *only* the graph structure (Nodes & Edges) for fast traversal.
+*   **Nodes:** Label `:Concept`
+    *   `qid`: Wikidata ID (e.g., Q36) - **Primary Key**
+    *   `ns`: Namespace (0 for articles)
+    *   *(Note: No Titles or Metadata)*
+*   **Relationships:** Type `:LINKS_TO`
+    *   Directional link between Concepts.
+
+### 2. SQLite (Metadata & Content)
+*   **Purpose:** Stores rich metadata, titles, text, and computed statistics.
+*   **Tables:**
+    *   `pages`: Page metadata (id, title, namespace, length) + **Degrees** (out_degree, in_degree) + **Infobox** (json).
+    *   `id_mapping`: Maps `page_id` to `qid`.
+    *   `link_targets`: Raw target strings from dumps.
+    *   `category_links`: Category hierarchy (if imported).
 
 ## Prerequisites
 
