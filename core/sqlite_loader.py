@@ -21,7 +21,10 @@ CREATE TABLE IF NOT EXISTS pages (
     namespace INTEGER,
     is_redirect BOOLEAN,
     len INTEGER,
-    touched TIMESTAMP
+    touched TIMESTAMP,
+    out_degree INTEGER DEFAULT 0,
+    in_degree INTEGER DEFAULT 0,
+    infobox JSON
 );
 
 CREATE TABLE IF NOT EXISTS link_targets (

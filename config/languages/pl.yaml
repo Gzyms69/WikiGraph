@@ -38,6 +38,8 @@ infobox:
   template_prefixes:
   - Infobox
   - Infokarta
+  template_suffixes:
+  - infobox
   parameter_map:
     urodzony: born
     zmarł: died

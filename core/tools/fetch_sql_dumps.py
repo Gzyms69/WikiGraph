@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 WikiGraph Dump Fetcher
-Robustly downloads specific SQL dump files from Wikimedia.
+Robustly downloads specific SQL and XML dump files from Wikimedia.
 """
 
 import os
@@ -19,7 +19,8 @@ REQUIRED_DUMPS = [
     "redirect",       # Redirect Source -> Target
     "langlinks",      # Interlingual mapping (to QID)
     "page_props",     # Wikidata QID mapping (pp_propname='wikibase_item')
-    "linktarget"      # Target titles for normalized links (replacing cl_to, pl_title)
+    "linktarget",     # Target titles for normalized links (replacing cl_to, pl_title)
+    "pages-articles-multistream" # XML content for infobox extraction
 ]
 
 BASE_URL = "https://dumps.wikimedia.org"
@@ -45,7 +46,7 @@ def download_file(url, dest_path):
         sys.exit(1)
 
 def main():
-    parser = argparse.ArgumentParser(description="Fetch Wikipedia SQL dumps.")
+    parser = argparse.ArgumentParser(description="Fetch Wikipedia SQL/XML dumps.")
     parser.add_argument("langs", nargs="+", help="Language codes (e.g. en pl)")
     parser.add_argument("--date", default="latest", help="Dump date (default: latest)")
     args = parser.parse_args()
@@ -59,11 +60,16 @@ def main():
     for lang in args.langs:
         print(f"\n🌍 Processing language: [{lang.upper()}]")
         
-        # 1. Check for the 'latest' redirect if date is 'latest' to get the real date folder (optional, but good for versioning)
-        # For simplicity in this robust script, we stick to the provided date tag which works for 'latest' in URL construction.
-        
         for dump_type in REQUIRED_DUMPS:
-            filename = f"{lang}wiki-{args.date}-{dump_type}.sql.gz"
+            # Determine extension
+            if "pages-articles" in dump_type:
+                ext = ".xml.bz2"
+            elif dump_type.endswith("index"): # just in case we add index later
+                ext = ".txt.bz2"
+            else:
+                ext = ".sql.gz"
+
+            filename = f"{lang}wiki-{args.date}-{dump_type}{ext}"
             url = f"{BASE_URL}/{lang}wiki/{args.date}/{filename}"
             dest_path = raw_data_dir / filename
             

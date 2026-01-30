@@ -10,29 +10,45 @@ wikipedia:
   - '#REDIRECT'
   disambiguation_markers:
   - '{{Begriffsklärung}}'
-  - '{{disambig}}'
+  - '{{Begriffsklärungshinweis}}'
   stub_markers:
-  - '{{Stub}}'
-  - '{{kurz}}'
+  - '{{Lückenhaft}}'
+  - '{{Überarbeiten}}'
   namespace_prefixes:
     file: &id001
-    - 'File:'
     - 'Datei:'
     - 'Bild:'
+    - 'File:'
     - 'Image:'
     template:
-    - 'Template:'
     - 'Vorlage:'
+    - 'Template:'
     category:
-    - 'Category:'
     - 'Kategorie:'
+    - 'Category:'
 text_processing:
   encoding: utf-8
   has_spaces: true
   word_separator: ' '
+  stopwords_path: config/stopwords/de.txt
   stemmer: snowball
 infobox:
   template_prefixes:
   - Infobox
+  - Taxobox
+  - Personendaten
+  parameter_map:
+    geboren: born
+    gestorben: died
+    lage: location
+    fläche: area
+    einwohner: population
+ui:
+  search_placeholder: Suche in der deutschen Wikipedia...
+  language_name: Deutsch
+  interface_translations:
+    show_connections: Verbindungen anzeigen
+    related_articles: Ähnliche Artikel
+    categories: Kategorien
 text_cleanup:
   file_patterns: *id001

@@ -1,12 +1,12 @@
 # WikiGraph Rebuild Plan: Hybrid, Multi-Source Knowledge Graph Lab
 
-##  Progress Tracker (Updated: 2026-01-19)
+##  Progress Tracker (Updated: 2026-01-28)
 *   **Protocol:** Adopted "Fail-Safe" pipeline with strict validation gates.
 *   **Previous Status:** **Phase 4A Complete (Multi-Language Infrastructure).**
-*   **Current Status:** **Cleanup Reorganization COMPLETED.**
-    *   Legacy code archived in `legacy/`.
-    *   Backend routing fixed.
-    *   Ready for Gate 5B.3.
+*   **Current Status:** **Phase 5B Complete (Metadata Enrichment).**
+    *   **German:** 62% Yield (1.9M records including Personendaten/Taxobox).
+    *   **Polish:** 79% Yield (1.3M records via suffix patterns).
+    *   **Ready for:** API Restoration (Gate 5B.5.12).
 
 ## 1. Comprehensive Legacy Feature Audit (The "Gold Standard")
 
@@ -46,6 +46,8 @@ These features used the Neo4j Graph Data Science (GDS) library.
 
 ## 2. Revised System Architecture (Virtual Bridge)
 
+The Unified Backend API acts as a **Virtual Bridge**, federating queries across isolated language databases. It does not maintain its own state but orchestrates parallel queries to Neo4j containers and SQLite databases.
+
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
 │                          Frontend (Next.js)                         │
@@ -72,6 +74,36 @@ These features used the Neo4j Graph Data Science (GDS) library.
         └─────────┘            └─────────┘                            │
 ```
 
+### 2.1 Backend Components
+*   **Core (`app/core/`):** Loads `infrastructure.yaml` to discover available languages and ports. Centralized logging.
+*   **Services (`app/services/`):**
+    *   **Neo4jManager:** Singleton connection pool. Handles **Graceful Degradation** (if 'de' is down, 'pl' still works). Resolves routing.
+    *   **MetadataManager:** Connects to SQLite for rich content (Titles, Infoboxes).
+*   **Routers (`app/api/routers/`):**
+    *   **Health (`/health`):** Aggregates status.
+    *   **Unified (`/api/unified`):** The Virtual Bridge. Broadcasts queries by QID and merges results.
+
+### 2.2 Data Flow (Example: Node Lookup)
+1.  **Request:** `GET /api/unified/node/Q36`
+2.  **Router:** Calls `Neo4jManager.broadcast("MATCH ... {qid: 'Q36'} ...")`
+3.  **Manager:** Spawns async tasks for `pl` (Port 7687) and `de` (Port 7688).
+4.  **Result:** Merges responses by QID.
+5.  **Enrichment:** Router calls `MetadataManager` to fetch titles/infoboxes from `pl.db` and `de.db`.
+6.  **Response:** JSON with combined data.
+
+### 2.3 Cross-Language Traversal Algorithm (BFS)
+To explore the graph across languages, we use a **Level-Synchronous Breadth-First Search (BFS)**:
+
+*   **Logic:**
+    *   Maintain `visited` set of QIDs.
+    *   For each depth level, broadcast query to ALL active language DBs.
+    *   Merge neighbors into `next_frontier`.
+    *   Trim frontier to `limit_per_depth` (e.g., 50) to prevent explosion.
+*   **Safety Limits:** Max Depth: 3, Max Nodes: 1000.
+*   **Timeout:** 3s per language query.
+
+---
+
 ## 3. Phased Implementation Plan (Revised)
 
 **Phase 4A: Multi-Language Infrastructure (Complete)**
@@ -85,59 +117,17 @@ These features used the Neo4j Graph Data Science (GDS) library.
 *   [x] **Gate 5A.3:** Health Endpoint.
 *   [x] **Gate 5B.1:** QID Endpoints (Merged).
 *   [x] **Gate 5B.2:** Language Endpoints (Pathfinding).
-*   [ ] **Gate 5B.3:** Cross-Language Traversal (BFS).
+*   [x] **Gate 5B.3:** Cross-Language Traversal (BFS).
+*   [x] **Gate 5B.5:** Metadata Enrichment (Infoboxes for PL/DE).
 
-### Phase 3: Polish Infobox Solution (Enhanced Scope)
+### Phase 6: API Restoration & Search
+*   [ ] **Gate 6.1:** Refactor API to serve enriched Infobox data (JSON).
+*   [ ] **Gate 6.2:** Keyword Search (Re-implement Lucene/Text index or FTS).
+*   [ ] **Gate 6.3:** Weighted Neighbors (Port Jaccard/AA logic).
 
-#### Gate 5B.5.6: Polish Infobox Pattern Analysis (Enhanced)
-**New understanding:** Two distinct patterns exist (prefix and suffix)
-
-**Analysis tasks:**
-1. **Pattern distribution analysis:**
-   - Sample 100,000 Polish articles
-   - Categorize by pattern: prefix, suffix, both, none
-   - Calculate percentages and article types
-
-2. **Configuration strategy:**
-   - Option A: Add `template_suffixes: ['infobox']` to `pl.yaml`
-   - Option B: Change detection logic to "contains 'infobox'"
-   - Option C: Hybrid approach (both prefix and suffix lists)
-
-3. **Parameter mapping validation:**
-   - Verify parameter mappings work for both pattern types
-   - Check for template name variations
-
-#### Gate 5B.5.7: Polish Infobox Extraction (Updated)
-**Implementation requirements:**
-- Support both prefix and suffix detection
-- Handle potential template name conflicts
-- Apply parameter mapping correctly
-- Store as JSON array with pattern type metadata
-
-**Phase 6: Search & Advanced Features (The "Legacy Restoration")**
-*   [ ] **Gate 6.1:** Keyword Search (Re-implement Lucene/Text index).
-*   [ ] **Gate 6.2:** Weighted Neighbors (Port Jaccard/AA logic to new Multi-DB structure).
-*   [ ] **Gate 6.3:** Analytics (Port GDS calls - requires GDS installation in containers).
-
-## 4. Potential Roadblocks & Mitigations
-
-| **Roadblock** | **Risk Level** | **Mitigation Strategy** |
-| :--- | :--- | :--- |
-| **GDS Compatibility** | High | GDS on multiple databases requires Enterprise or careful orchestration. **Strategy:** Run GDS on one language at a time or aggregate data in memory. |
-| **Search Performance** | Medium | Lucene across 2 DBs + SQLite? **Strategy:** Use SQLite FTS5 for title search (fast, low overhead). |
-
-## 5. Success Metrics
-
-*   **Metric:** Simultaneous query of Polish and German graphs via the API.
-*   **Metric:** Zero data cross-contamination.
-
-## 6. Architectural Principle: Minimal Neo4j (Gate 5B.3.9)
+## 4. Architectural Principle: Minimal Neo4j (Gate 5B.3.9)
 
 **Decision (Jan 2026):** Neo4j must remain lean to maximize graph traversal performance and minimize memory footprint. Metadata should reside in SQLite.
 
 *   **Neo4j:** Stores ONLY graph topology (Nodes `QID` and Relationships `LINKS_TO`).
 *   **SQLite:** Stores ALL node attributes (`title`, `out_degree`, `in_degree`, `infobox`, `text`).
-*   **Migration Plan:**
-    1.  **Schema Update:** Add `out_degree` and `in_degree` columns to SQLite `pages` table.
-    2.  **Cleanup:** Remove `title` and degree properties from Neo4j nodes.
-    3.  **API Update:** Refactor Backend to fetch metadata from SQLite using QIDs returned by Neo4j.

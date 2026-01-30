@@ -36,7 +36,7 @@ def load_mappings(db_path):
         SELECT p.page_id, p.title, m.qid 
         FROM pages p 
         JOIN id_mapping m ON p.page_id = m.page_id
-        WHERE p.namespace = 0
+        WHERE p.namespace = 0 AND p.is_redirect = 0
     """,)
     
     for pid, title, qid in tqdm(cursor, desc="Loading Pages"):

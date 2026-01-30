@@ -106,7 +106,7 @@ class LanguageManager:
     @classmethod
     def get_redirect_keywords(cls, lang_code: str) -> List[str]:
         """Get redirect keywords for the specified language."""
-        return cls.get_config(lang_code)['wikipedia']['redirect_keywords']
+        return cls._safe_get(cls.get_config(lang_code), 'wikipedia.redirect_keywords', [])
 
     @classmethod
     def get_namespace_prefixes(cls, lang_code: str) -> Dict[str, List[str]]:
@@ -158,7 +158,17 @@ class LanguageManager:
     @classmethod
     def get_processing_config(cls, lang_code: str) -> Dict[str, Any]:
         """Get processing configuration settings."""
-        return cls.get_config(lang_code)['processing']
+        config = cls.get_config(lang_code)
+        processing_config = cls._safe_get(config, 'processing')
+        
+        if processing_config is None:
+            import logging
+            # Only log if we haven't logged this before for this language to avoid spam
+            # For now, just a simple warning
+            # logging.warning(f"Language '{lang_code}' missing processing configuration. Defaulting to disabled.")
+            return {'enabled': False}
+            
+        return processing_config
 
     @classmethod
     def clear_cache(cls) -> None:

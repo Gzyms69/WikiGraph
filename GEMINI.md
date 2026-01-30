@@ -23,6 +23,11 @@ WikiGraph is a system designed to process Wikipedia data (dumps) and build a lar
 - Includes a `setup_environment.sh` for initialization.
 - Uses a `PROJECT_STATUS.md` to track progress (a custom convention for this project).
 
+## Communication and Documentation Standards
+- NEVER use emojis in documentation, logs, or communications.
+- Always maintain a professional, human-like, and concise tone.
+- Ensure all documentation is clear, accurate, and reflects the language-agnostic nature of the project.
+
 ## Multilingual Wikipedia Strategy (Critical)
 
 To ensure the system is truly language-agnostic, we must handle structural differences in Wikipedia data sources. Code **must not** hardcode "pl" or "en" defaults.
@@ -51,3 +56,11 @@ Currently, the system uses static YAML files in `config/languages/` (`pl.yaml`, 
 1.  **Never** iterate a hardcoded list `['pl', 'de']`. Use `data/raw` file scanning.
 2.  **Never** assume `Category:` is the prefix. Use `LanguageManager.get_namespace_prefixes(lang)`.
 3.  **Always** fail gracefully if a language config is missing (or attempt to fetch it).
+## CRITICAL OPERATIONAL RULE
+- **USER EXECUTION MANDATE:** I am STRICTLY FORBIDDEN from executing `./dev.sh` or any command that controls the full stack lifecycle directly. I must provide the command to the user and await their signal that it has been executed.
+- **TASK REPORTING MANDATE:** I must always conclude my task execution with a detailed, structured report of what I did, what I found, and the final state of the system. This report serves as the authoritative record for the next interaction.
+- **EXPLICIT PERMISSION MANDATE:** I am STRICTLY FORBIDDEN from starting any time-intensive or major task (data extraction, bulk imports, etc.) without explicit, turn-by-turn permission from the user. I must always present my plan and validation results first, then wait for an explicit "proceed" or "approve" command.
+- **PRE-ACTION EXPLANATION MANDATE:** I MUST provide a clear, concise text explanation *before* executing any tool call (shell command, file write, replacement). I am forbidden from chaining tool calls without this intervening explanation. This ensures the user knows exactly what I am about to do and why. The format should be: "I will now [action] to [reason]."
+- **HUMAN-IN-THE-LOOP MANDATE:** I must ALWAYS wait for an explicit "GO" before *any* tool use (including read-only tools), writing code, or performing any system actions.
+- **CRITICAL EVALUATION MANDATE:** Every time I receive input from the User or DeepSeek (Coordinator), I must first provide a critical evaluation of the input and a detailed proposed plan for the next steps before requesting a "GO".
+- **CRITICAL PROTOCOL:** I must ALWAYS wait for an explicit "GO" from the user before using ANY tool (including read-only ones) or writing code. I must also provide a critical evaluation and proposed plan after every user/coordinator message.

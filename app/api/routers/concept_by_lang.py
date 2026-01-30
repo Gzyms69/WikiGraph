@@ -49,6 +49,7 @@ async def get_concept_by_lang(
         "qid": row["qid"],
         "lang": lang,
         "title": meta.get_title(lang, qid),
+        "infobox": meta.get_infobox(lang, qid),
         "neighbors": []
     }
     

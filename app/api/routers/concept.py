@@ -36,6 +36,7 @@ async def get_concept(
     merged = {
         "qid": qid,
         "titles": {},
+        "infoboxes": {},
         "neighbors": {},
         "found_in": []
     }
@@ -49,6 +50,8 @@ async def get_concept(
             row = rows[0]
             
             merged["titles"][lang] = meta_manager.get_title(lang, qid)
+            merged["infoboxes"][lang] = meta_manager.get_infobox(lang, qid)
+            
             neighbor_qids = row.get("neighbor_qids", [])
             merged["neighbors"][lang] = []
             

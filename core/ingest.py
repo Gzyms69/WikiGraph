@@ -1,89 +1,68 @@
 #!/usr/bin/env python3
 """
-Universal Ingestion Controller for WikiGraph
-Orchestrates the pipeline: Raw Dump -> Parser -> Graph Engine -> Neo4j
+WikiGraph Master Ingestion Orchestrator
+Automates the Offline Phase of the pipeline: Download -> SQLite Load -> Infobox Extraction -> CSV Generation
 """
 
 import sys
-import logging
+import argparse
 import subprocess
+import time
 from pathlib import Path
 
-# Setup logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.StreamHandler(sys.stdout)
-    ]
-)
-
-def check_processed_data(lang):
-    """Check if parsed JSONL/CSV files exist for the language."""
-    processed_dir = Path(f"data/processed/{lang}")
-    if not processed_dir.exists():
-        return False
-    
-    # Check for at least one batch
-    articles = list(processed_dir.glob("articles_batch_*.jsonl.gz"))
-    return len(articles) > 0
-
-def run_parser(lang):
-    """Run the parser to generate intermediate files."""
-    logging.info(f"⚙️  Running Parser for {lang.upper()}...")
-    cmd = [sys.executable, "core/parser.py", "--lang", lang]
+def run_step(description, cmd_args):
+    print(f"\n🚀 STEP: {description}")
+    start = time.time()
     try:
-        subprocess.run(cmd, check=True)
-        logging.info(f"✅ Parser completed for {lang}.")
+        subprocess.run([sys.executable] + cmd_args, check=True)
+        print(f"✅ Completed in {time.time() - start:.1f}s")
     except subprocess.CalledProcessError as e:
-        logging.error(f"❌ Parser failed: {e}")
+        print(f"❌ Failed: {e}")
         sys.exit(1)
-
-def run_ingestion(lang):
-    """Run the Graph Engine to load data into Neo4j."""
-    logging.info(f"🚀 Starting Neo4j Ingestion for {lang.upper()}...")
-    
-    from core.engine.graph_engine import WikiGraphEngine
-    
-    engine = WikiGraphEngine(
-        uri="bolt://localhost:7687",
-        user="neo4j",
-        password="wikigraph",
-        max_connections=40
-    )
-    
-    data_dir = f"data/processed/{lang}"
-    engine.ingest_language(
-        lang=lang,
-        data_dir=data_dir,
-        batch_size=5000,
-        workers=16
-    )
 
 def main():
-    if len(sys.argv) < 2:
-        print("Usage: python3 ingest.py <lang_code> [lang_code ...]")
-        print("Example: python3 ingest.py pl de")
-        sys.exit(1)
-        
-    languages = sys.argv[1:]
-    
-    for lang in languages:
-        logging.info("="*60)
-        logging.info(f"🌍 PROCESSING LANGUAGE: {lang.upper()}")
-        logging.info("="*60)
-        
-        # 1. Parse (if needed)
-        if not check_processed_data(lang):
-            logging.warning(f"⚠️  Processed data not found for {lang}. invoking parser...")
-            run_parser(lang)
-        else:
-            logging.info(f"✅ Found existing processed data for {lang}. Skipping parser.")
-            
-        # 2. Ingest
-        run_ingestion(lang)
-        
-        logging.info(f"✨ Language {lang.upper()} processing complete.\n")
+    parser = argparse.ArgumentParser(description="WikiGraph Ingestion Pipeline (Offline Phase)")
+    parser.add_argument("--lang", required=True, help="Language code (e.g. de, pl)")
+    parser.add_argument("--limit", type=int, default=0, help="Limit rows/articles for testing (0=no limit)")
+    parser.add_argument("--download", action="store_true", help="Download dumps first")
+    parser.add_argument("--skip-sql", action="store_true", help="Skip SQLite schema/SQL load")
+    parser.add_argument("--skip-infobox", action="store_true", help="Skip XML infobox extraction")
+    parser.add_argument("--skip-csv", action="store_true", help="Skip Neo4j CSV generation")
+    args = parser.parse_args()
+
+    lang = args.lang
+    limit_arg = str(args.limit)
+    print(f"🌍 Starting Ingestion Pipeline for [{lang.upper()}] (Limit: {args.limit})")
+
+    # 1. Download
+    if args.download:
+        run_step("Download Dumps", ["core/tools/fetch_sql_dumps.py", lang])
+
+    # 2. SQLite SQL Load
+    if not args.skip_sql:
+        cmd = ["core/sqlite_loader.py", "--lang", lang, "--init"]
+        if args.limit > 0:
+            cmd.extend(["--limit", limit_arg])
+        run_step("Initialize SQLite & Load SQL Dumps", cmd)
+
+    # 3. Infobox Extraction
+    if not args.skip_infobox:
+        # extract_infoboxes accepts 0 as 'no limit'
+        run_step("Extract Infoboxes from XML", ["core/tools/extract_infoboxes.py", "--lang", lang, "--limit", limit_arg])
+
+    # 4. CSV Generation
+    if not args.skip_csv:
+        cmd = ["core/tools/prepare_neo4j_csv.py", "--lang", lang]
+        if args.limit > 0:
+            cmd.extend(["--limit", limit_arg])
+        run_step("Generate Neo4j CSVs", cmd)
+
+    print("\n✨ OFFLINE PIPELINE COMPLETE.")
+    print(f"   Next Steps:")
+    print(f"   1. Stop Neo4j:   docker stop neo4j-{lang}")
+    print(f"   2. Import Data:  bash core/tools/run_neo4j_import.sh {lang}")
+    print(f"   3. Start Neo4j:  docker start neo4j-{lang}")
+    print(f"   4. Post-Process: python3 tools/compute_edge_degrees.py --lang {lang}")
 
 if __name__ == "__main__":
     main()
