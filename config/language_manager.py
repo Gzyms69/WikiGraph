@@ -24,10 +24,32 @@ class LanguageManager:
     _config_dir = Path(__file__).parent / "languages"
 
     @classmethod
+    def _safe_get(cls, config: Dict[str, Any], path: str, default: Any = None) -> Any:
+        """
+        Safely retrieve a value from a nested dictionary using dot notation.
+        
+        Args:
+            config: The configuration dictionary.
+            path: Dot-separated path to the value (e.g., 'wikipedia.namespace_prefixes').
+            default: Value to return if the key is missing.
+        
+        Returns:
+            The value at the path or the default.
+        """
+        keys = path.split('.')
+        current = config
+        for key in keys:
+            if isinstance(current, dict) and key in current:
+                current = current[key]
+            else:
+                return default
+        return current
+
+    @classmethod
     def get_config(cls, lang_code: str) -> Dict[str, Any]:
         """
         Load and cache language configuration.
-        Auto-generates config via API if missing (JIT).
+        Auto-generates config via API if missing (JIT) ONLY if explicitly enabled.
 
         Args:
             lang_code: Two-letter language code (e.g., 'pl', 'en')
@@ -43,32 +65,38 @@ class LanguageManager:
             config_path = cls._config_dir / f"{lang_code}.yaml"
 
             if not config_path.exists():
-                # JIT: Try to fetch configuration dynamically
-                # This makes the system truly language agnostic - 0 config required.
-                try:
-                    root_dir = Path(__file__).parent.parent
-                    tool_path = root_dir / "core" / "tools" / "fetch_lang_config.py"
-                    
-                    if not tool_path.exists():
-                        # If tool is missing, we can't auto-fetch. Fallback to error.
-                        raise FileNotFoundError(f"Configuration file {config_path} not found and fetcher tool missing.")
+                # Check environment variable to enable JIT
+                jit_enabled = os.environ.get("WIKIGRAPH_JIT_ENABLED", "false").lower() == "true"
+                
+                if jit_enabled:
+                    # JIT: Try to fetch configuration dynamically
+                    try:
+                        root_dir = Path(__file__).parent.parent
+                        tool_path = root_dir / "core" / "tools" / "fetch_lang_config.py"
+                        
+                        if not tool_path.exists():
+                            # If tool is missing, we can't auto-fetch. Fallback to error.
+                            raise FileNotFoundError(f"Configuration file {config_path} not found and fetcher tool missing.")
 
-                    import subprocess
-                    import sys
-                    
-                    # Run the fetcher tool as a subprocess to generate the YAML
-                    result = subprocess.run(
-                        [sys.executable, str(tool_path), "--lang", lang_code],
-                        check=True,
-                        capture_output=True,
-                        text=True
-                    )
-                except Exception as e:
-                    # If JIT fails (no internet, API error), we must fail.
-                    raise RuntimeError(f"Failed to auto-generate config for '{lang_code}'. Check internet or API availability. Error: {e}")
+                        import subprocess
+                        import sys
+                        
+                        # Run the fetcher tool as a subprocess to generate the YAML
+                        result = subprocess.run(
+                            [sys.executable, str(tool_path), "--lang", lang_code],
+                            check=True,
+                            capture_output=True,
+                            text=True
+                        )
+                    except Exception as e:
+                        # If JIT fails (no internet, API error), we must fail.
+                        raise RuntimeError(f"Failed to auto-generate config for '{lang_code}'. Check internet or API availability. Error: {e}")
+                else:
+                    # JIT Disabled: Fail fast
+                     pass # Will raise FileNotFoundError below
 
             if not config_path.exists():
-                raise FileNotFoundError(f"Configuration file not found even after JIT attempt: {config_path}")
+                raise FileNotFoundError(f"Configuration file not found: {config_path}. (JIT Auto-generation is DISABLED. Set WIKIGRAPH_JIT_ENABLED=true to enable.)")
 
             with open(config_path, 'r', encoding='utf-8') as f:
                 cls._configs[lang_code] = yaml.safe_load(f)
@@ -106,7 +134,20 @@ class LanguageManager:
     @classmethod
     def get_text_cleanup_patterns(cls, lang_code: str) -> List[str]:
         """Get file patterns to remove during plain text extraction."""
-        return cls.get_config(lang_code)['text_cleanup']['file_patterns']
+        config = cls.get_config(lang_code)
+        # Primary path: text_cleanup.file_patterns
+        patterns = cls._safe_get(config, 'text_cleanup.file_patterns')
+        
+        if patterns is None:
+            # Fallback 1: Try to get from namespace prefixes if available
+            # This is a 'smart default' mentioned in the plan
+            ns_prefixes = cls._safe_get(config, 'wikipedia.namespace_prefixes.file')
+            if ns_prefixes:
+                return ns_prefixes
+            # Fallback 2: Return empty list to prevent crash
+            return []
+            
+        return patterns
 
     @classmethod
     def get_language_info(cls, lang_code: str) -> Dict[str, str]:
