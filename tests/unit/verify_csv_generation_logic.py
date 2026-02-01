@@ -6,7 +6,7 @@ from pathlib import Path
 # Add project root to sys.path
 sys.path.append(os.getcwd())
 
-from core.tools.prepare_neo4j_csv import load_mappings
+from core.pipeline.prepare_neo4j_csv import load_mappings
 
 def verify_logic(lang):
     print(f"Verifying CSV Generation Logic for {lang.upper()}...")

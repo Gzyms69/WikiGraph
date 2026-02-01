@@ -1,10 +1,10 @@
 # WikiGraph
 
-**Current Status (January 27, 2026):**
-- German infobox extraction validated (works with prefix pattern).
-- Polish infobox complexity analyzed (requires suffix pattern support).
-- Documentation updated with latest findings.
-- Focus remains on German-first approach.
+**Current Status (February 1, 2026):**
+- **Migration Complete:** "Project Clean Slate" executed. Codebase structured for modularity.
+- **German Extraction:** Validated (works with prefix pattern).
+- **Polish Extraction:** Complexity analyzed (requires suffix pattern support).
+- **Focus:** German-first approach remains active.
 
 **For latest details:** See `PROJECT_STATUS.md` and `devlog.md`.
 
@@ -89,31 +89,41 @@ To process a new language (e.g., German 'de' or Spanish 'es'), execute the pipel
 
 1.  **Download Data:** Fetches the required SQL dumps from Wikimedia.
     ```bash
-    python3 core/tools/fetch_sql_dumps.py <lang_code>
+    python3 core/pipeline/fetch_sql_dumps.py <lang_code>
     ```
 
 2.  **Metadata Ingestion:** Parses SQL dumps and populates the SQLite database.
     ```bash
-    python3 core/sqlite_loader.py --init --lang <lang_code>
+    python3 core/loaders/sqlite_loader.py --init --lang <lang_code>
     ```
 
 3.  **Topology Generation:** Extracts the link graph and generates import-ready CSV files.
     ```bash
-    python3 core/tools/prepare_neo4j_csv.py --lang <lang_code>
+    python3 core/pipeline/prepare_neo4j_csv.py --lang <lang_code>
     ```
 
 4.  **Bulk Import:** Loads the CSV files into the Neo4j container.
     ```bash
-    bash core/tools/run_neo4j_import.sh <lang_code>
+    bash core/pipeline/run_neo4j_import.sh <lang_code>
     ```
 
 ## Project Structure
 
-*   `core/`: Core ETL logic, parsers, and processing scripts.
+*   `core/`: Core ETL logic.
+    *   `pipeline/`: Orchestration scripts (Download, CSV Prep, Import).
+    *   `loaders/`: Data parsers and SQLite loaders.
+    *   `engine/`: Neo4j interaction logic.
+    *   `legacy/`: Archived tools.
+*   `tools/`: Helper scripts.
+    *   `ops/`: Infrastructure management (Docker, Containers).
+    *   `analytics/`: Data analysis and metric computation.
+    *   `archive/`: One-off debug scripts.
 *   `app/`: FastAPI backend service.
 *   `config/`: Configuration for infrastructure and language-specific parsing rules.
 *   `data/`: Directory for raw dumps, SQLite databases, and Neo4j volume data.
-*   `tools/`: Verification and maintenance scripts.
+*   `tests/`: Verification suites.
+    *   `unit/`: Isolated module tests.
+    *   `integration/`: End-to-end API and container tests.
 
 ## Data Validation
 

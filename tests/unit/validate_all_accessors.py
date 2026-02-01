@@ -3,7 +3,7 @@ import os
 from pathlib import Path
 
 # Add project root to path
-sys.path.append(str(Path(__file__).parent.parent))
+sys.path.append(str(Path(__file__).resolve().parent.parent.parent))
 
 from config.language_manager import LanguageManager
 

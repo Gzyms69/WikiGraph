@@ -36,11 +36,11 @@ def main():
 
     # 1. Download
     if args.download:
-        run_step("Download Dumps", ["core/tools/fetch_sql_dumps.py", lang])
+        run_step("Download Dumps", ["core/pipeline/fetch_sql_dumps.py", lang])
 
     # 2. SQLite SQL Load
     if not args.skip_sql:
-        cmd = ["core/sqlite_loader.py", "--lang", lang, "--init"]
+        cmd = ["core/loaders/sqlite_loader.py", "--lang", lang, "--init"]
         if args.limit > 0:
             cmd.extend(["--limit", limit_arg])
         run_step("Initialize SQLite & Load SQL Dumps", cmd)
@@ -48,11 +48,11 @@ def main():
     # 3. Infobox Extraction
     if not args.skip_infobox:
         # extract_infoboxes accepts 0 as 'no limit'
-        run_step("Extract Infoboxes from XML", ["core/tools/extract_infoboxes.py", "--lang", lang, "--limit", limit_arg])
+        run_step("Extract Infoboxes from XML", ["core/pipeline/extract_infoboxes.py", "--lang", lang, "--limit", limit_arg])
 
     # 4. CSV Generation
     if not args.skip_csv:
-        cmd = ["core/tools/prepare_neo4j_csv.py", "--lang", lang]
+        cmd = ["core/pipeline/prepare_neo4j_csv.py", "--lang", lang]
         if args.limit > 0:
             cmd.extend(["--limit", limit_arg])
         run_step("Generate Neo4j CSVs", cmd)
@@ -60,7 +60,7 @@ def main():
     print("\n✨ OFFLINE PIPELINE COMPLETE.")
     print(f"   Next Steps:")
     print(f"   1. Stop Neo4j:   docker stop neo4j-{lang}")
-    print(f"   2. Import Data:  bash core/tools/run_neo4j_import.sh {lang}")
+    print(f"   2. Import Data:  bash core/pipeline/run_neo4j_import.sh {lang}")
     print(f"   3. Start Neo4j:  docker start neo4j-{lang}")
     print(f"   4. Post-Process: python3 tools/compute_edge_degrees.py --lang {lang}")
 

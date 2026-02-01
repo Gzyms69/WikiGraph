@@ -145,7 +145,7 @@ def check_tools():
     print("\n--- Toolchain Code Audit ---")
     
     # 1. sqlite_loader.py
-    with open("core/sqlite_loader.py", "r") as f:
+    with open("core/loaders/sqlite_loader.py", "r") as f:
         content = f.read()
         if "infobox JSON" in content:
             print("✅ core/sqlite_loader.py: 'infobox JSON' found in SCHEMA")
@@ -153,7 +153,7 @@ def check_tools():
             print("❌ core/sqlite_loader.py: 'infobox JSON' MISSING in SCHEMA")
 
     # 2. prepare_neo4j_csv.py
-    with open("core/tools/prepare_neo4j_csv.py", "r") as f:
+    with open("core/pipeline/prepare_neo4j_csv.py", "r") as f:
         content = f.read()
         if "WHERE p.namespace = 0 AND p.is_redirect = 0" in content:
             print("✅ core/tools/prepare_neo4j_csv.py: Redirect filter FOUND")

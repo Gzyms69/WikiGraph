@@ -6,15 +6,17 @@ WikiGraph is a system designed to process Wikipedia data (dumps) and build a lar
 ## Architecture & Key Technologies
 - **Backend:** Python (FastAPI suggested by `run_api.py`)
 - **Graph Database:** Neo4j (indicated by `core/engine/graph_engine.py` and `data/neo4j_data`)
-- **Relational Database:** SQLite (indicated by `core/sqlite_loader.py`)
+- **Relational Database:** SQLite (indicated by `core/loaders/sqlite_loader.py`)
 - **Data Processing:** Specialized tools for parsing Wikipedia XML/SQL dumps and cleaning import data.
 
 ## Key Files & Directories
 - `app/`: API implementation (`api.py`, `models.py`).
 - `core/`: Core logic for data ingestion, parsing, and graph management.
+    - `pipeline/`: Active ELT scripts.
+    - `loaders/`: Data parsers and database loaders.
 - `core/engine/`: Neo4j schema setup and engine logic.
 - `data/`: Raw and processed Wikipedia data.
-- `tools/`: CLI tools for monitoring and graph verification.
+- `tools/`: CLI tools for operations and analytics.
 - `frontend/`: **Full-Stack Frontend.** The production Next.js application designed to connect to the Python/Neo4j backend.
 - `website/`: **Static Demo Frontend.** A standalone Next.js application deployed to GitHub Pages. It simulates backend features (Search, Expansion) using `GraphService` and a pre-loaded JSON dataset (`demo-nebula.json`).
 
@@ -33,7 +35,7 @@ WikiGraph is a system designed to process Wikipedia data (dumps) and build a lar
 To ensure the system is truly language-agnostic, we must handle structural differences in Wikipedia data sources. Code **must not** hardcode "pl" or "en" defaults.
 
 ### 1. Parsing Differences
-Languages differ in structural keywords. The `core/parser.py` relies on `config/language_manager.py` to provide these.
+Languages differ in structural keywords. The `core/loaders/parser.py` relies on `config/language_manager.py` to provide these.
 
 | Feature | English | Polish | German | Strategy |
 | :--- | :--- | :--- | :--- | :--- |
@@ -48,8 +50,8 @@ Currently, the system uses static YAML files in `config/languages/` (`pl.yaml`, 
 **Solution:** We need an `auto_config.py` tool.
 
 ### 3. Roadmap to Infinite Scalability
-- [ ] **Dynamic Config Generator:** Create `core/tools/fetch_lang_config.py` to query `https://{lang}.wikipedia.org/w/api.php?action=query&meta=siteinfo` and generate the YAML automatically.
-- [ ] **Universal Parser:** Ensure `core/parser.py` loads this dynamic config.
+- [ ] **Dynamic Config Generator:** Create `core/legacy/fetch_lang_config.py` (to be revived in Pipeline) to query `https://{lang}.wikipedia.org/w/api.php?action=query&meta=siteinfo` and generate the YAML automatically.
+- [ ] **Universal Parser:** Ensure `core/loaders/parser.py` loads this dynamic config.
 - [ ] **Date Normalization:** Implement a strategy (e.g., `dateparser` library) to handle locale-specific date strings if extraction is required.
 
 ### 4. Implementation Rules

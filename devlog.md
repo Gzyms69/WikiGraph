@@ -787,3 +787,88 @@ The `LanguageManager` contains logic to silently invoke `core/tools/fetch_lang_c
 2.  **Refactor Backlog:** Create a targeted list of fixes based on the audit.
 3.  **Resume Refactor:** Implement specific `LanguageManager` methods required by the tools.
 
+## 2026-02-01: "Clean Slate" Audit - Phases 0-2 Complete
+
+**Phase 0: Safety & Baseline**
+*   **Action:** Created git snapshot `AUDIT: Pre-cleanup snapshot`.
+*   **Validation:** Ran `tests/validate_all_accessors.py`.
+*   **Result:** DE/PL/EN passed. ES failed correctly (JIT disabled). Baseline secured.
+
+**Phase 1 & 2: Active Tree Mapping & Classification**
+*   **Objective:** Identify the "Active Core" amidst chaos.
+*   **Findings (The Active Core):**
+    *   **Orchestrator:** `core/ingest.py`
+    *   **Pipeline:** `core/tools/` (fetch_sql_dumps, prepare_neo4j_csv, extract_infoboxes)
+    *   **Loaders:** `core/sqlite_loader.py`, `core/parser.py`
+    *   **Engine:** `core/engine/`
+    *   **API:** `app/`
+    *   **Config:** `config/`
+*   **Findings (The Noise):**
+    *   `core/bulk_exporter.py`: Legacy pipeline logic.
+
+## 2026-02-01: "Clean Slate" Audit - Phases 0-2 Complete
+
+**Phase 0: Safety & Baseline**
+*   **Action:** Created git snapshot `AUDIT: Pre-cleanup snapshot`.
+*   **Validation:** Ran `tests/validate_all_accessors.py`.
+*   **Result:** DE/PL/EN passed. ES failed correctly (JIT disabled). Baseline secured.
+
+**Phase 1 & 2: Active Tree Mapping & Classification**
+*   **Objective:** Identify the "Active Core" amidst chaos.
+*   **Findings (The Active Core):**
+    *   **Orchestrator:** `core/ingest.py`
+    *   **Pipeline:** `core/tools/` (fetch_sql_dumps, prepare_neo4j_csv, extract_infoboxes)
+    *   **Loaders:** `core/sqlite_loader.py`, `core/parser.py`
+    *   **Engine:** `core/engine/`
+    *   **API:** `app/`
+    *   **Config:** `config/`
+*   **Findings (The Noise):**
+    *   `core/bulk_exporter.py`: Legacy pipeline logic.
+    *   `tests/validate_gate_*.py`: Historical artifacts.
+    ## 2026-02-01: Phase 4 - "Project Clean Slate" Migration Execution
+
+**Status:** SUCCESS
+
+**Action:**
+Executed `scripts/migrate_structure.py` to restructure the codebase for modularity and language-agnosticism.
+
+**Operations:**
+1.  **Backup:** Created `backup_1769959076/pre_migration.tar.gz` containing core, tools, tests, scripts, config, and README.
+2.  **Restructuring:**
+    *   Moved `core/ingest.py` and tools to `core/pipeline/`.
+    *   Moved `core/sqlite_loader.py` and `parser.py` to `core/loaders/`.
+    *   Moved `scripts/start_test_containers.sh` to `tools/ops/`.
+    *   Moved `tests/validate_all_accessors.py` etc. to `tests/unit/` and `tests/integration/`.
+3.  **Refactoring:**
+    *   Updated `subprocess` calls in `core/pipeline/ingest.py` to point to new tool locations.
+    *   Updated `sys.path` in moved tests to ensure import resolution.
+    *   Updated `README.md` documentation paths.
+
+**Validation:**
+*   **Import Check:** `core.pipeline.ingest` imports successfully.
+*   **Unit Test:** `tests/unit/validate_all_accessors.py` passed (verified DE/PL/EN configs).
+
+**Outcome:**
+The "Active Core" is now physically separated from legacy tools and noise. The directory structure is clean and ready for Phase 5 (Language-Agnostic Expansion).
+
+## 2026-02-01: Phase 4C - "Project De-Clutter" Complete
+
+**Status:** SUCCESS
+
+**Action:**
+Executed `scripts/cleanup_phase_c.py` to archive 82 legacy and one-off scripts.
+
+**Metrics:**
+*   **Core Tools:** `core/tools/` directory REMOVED. (5 files -> `core/legacy/`)
+*   **Root Tools:** 58 files moved from `tools/` to `tools/archive/`.
+*   **Root Tests:** 19 legacy validation scripts moved from `tests/` to `tests/archive/`.
+
+**Final State:**
+*   **Core:** `core/pipeline`, `core/loaders`, `core/engine`, `core/legacy`
+*   **Tools:** `tools/ops` (Infrastructure), `tools/analytics` (Metrics), `tools/archive`
+*   **Tests:** `tests/unit`, `tests/integration`, `tests/archive`
+
+**Impact:**
+The project root is now pristine. All active code lives in `core/pipeline` or `tools/ops`. All noise is archived.
+
+

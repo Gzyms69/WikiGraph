@@ -13,7 +13,7 @@ def run_performance_test():
     print("\nTest 1: Validation (10000 articles)")
     start = time.time()
     result = subprocess.run(
-        [sys.executable, "core/tools/extract_infoboxes.py", "--lang", "de", "--limit", "10000"],
+        [sys.executable, "core/pipeline/extract_infoboxes.py", "--lang", "de", "--limit", "10000"],
         capture_output=True,
         text=True
     )

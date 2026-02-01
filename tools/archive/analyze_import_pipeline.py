@@ -11,11 +11,11 @@ def analyze_import_scripts():
     
     # Key directories and files
     import_scripts = [
-        "core/ingest.py",
-        "core/sqlite_loader.py", 
-        "core/tools/run_neo4j_import.sh",
-        "core/tools/prepare_neo4j_csv.py",
-        "core/tools/fetch_sql_dumps.py"
+        "core/pipeline/ingest.py",
+        "core/loaders/sqlite_loader.py", 
+        "core/pipeline/run_neo4j_import.sh",
+        "core/pipeline/prepare_neo4j_csv.py",
+        "core/pipeline/fetch_sql_dumps.py"
     ]
     
     for script_path in import_scripts:
