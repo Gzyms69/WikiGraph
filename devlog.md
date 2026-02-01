@@ -741,3 +741,49 @@ Proceed to Gate 5B.2.
 
 **Security Alert:**
 The `LanguageManager` contains logic to silently invoke `core/tools/fetch_lang_config.py` if a config is missing. This must be **DISABLED** during the refactor to ensure deterministic behavior.## 2026-01-30 - Step B Preparation
+
+## 2026-01-30: Phase 2.2 - High-Risk Getters Refactor Complete
+1.  **get_redirect_keywords():** Refactored to use `_safe_get` with default `[]`.
+2.  **get_namespace_prefixes():** Refactored to use `_safe_get` with default `{}`.
+3.  **Validation Results:**
+    -   **DE:** 3 namespace categories preserved.
+    -   **PL:** 3 namespace categories preserved.
+    -   **EN:** 10 namespace categories preserved (**Discovery:** `en.yaml` is more complete than documented; has full `namespace_prefixes`).
+    -   **ES:** `FileNotFoundError` (JIT Disabled) - Correct.
+4.  **Next Step:** Investigation of `get_dbname` logic and usage.
+
+## 2026-01-30: Phase 2.3 - get_dbname() Refactor Complete (STRICT)
+1.  **Implementation:** Applied Option A (Strict Validation) with enhanced error reporting.
+    -   Ensures `wikipedia.dbname` exists and is a valid string.
+    -   Validates format (alphanumeric + underscores/hyphens) for filesystem safety.
+    -   Provides clear, actionable error messages pointing to the config file.
+2.  **Validation Results:**
+    -   **DE/PL/EN:** Correctly retrieved `dewiki`, `plwiki`, `enwiki`.
+    -   **ES:** `FileNotFoundError` (JIT Disabled) - Correct.
+    -   **Mock Test:** Missing `dbname` correctly raises `ValueError` with detailed context.
+3.  **Performance Check:**
+    -   **10,000 calls:** 0.0053 seconds (~0.5 microseconds per call).
+4.  **Integration Check:** Verified that `core/parser.py` will now fail with a clear `ValueError` if configuration is missing, rather than a generic `KeyError` or `StopIteration`.
+
+## 2026-01-30: Phase 2.4 - get_language_info() Refactor Complete (Safe Defaults)
+1.  **Objective:** Prevent UI/Metadata crashes when optional config sections (`language:`) are missing.
+2.  **Implementation:**
+    -   Uses `_safe_get` to retrieve language metadata.
+    -   If missing, synthesizes safe defaults (`code`, `name`, `local_name` all fallback to the lang code).
+3.  **Validation:**
+    -   **DE/PL/EN:** Returns full metadata from YAML.
+    -   **ES (Mocked):** Returns synthesized defaults instead of crashing.
+4.  **Impact:** Frontend and logging can now safely request language info for partial/new configs without breaking the application.
+
+## 2026-01-30: Strategy Shift - Consumer Audit First
+**Status:** Pausing `LanguageManager` feature expansion (Phase 2.5).
+**Reason:** We need to verify *what* the core tools (`parser.py`, `extract_infoboxes.py`) actually require before adding more getters. Blindly adding methods like `get_disambiguation_markers` is inefficient if the consumers are hardcoding checks.
+
+**Next Steps (To-Do):**
+1.  **Audit Consumers:** Inspect `core/parser.py`, `extract_infoboxes.py`, and `prepare_neo4j_csv.py` for:
+    -   Direct dictionary access (Unsafe).
+    -   Hardcoded strings (Non-universal).
+    -   Usage of `LanguageManager`.
+2.  **Refactor Backlog:** Create a targeted list of fixes based on the audit.
+3.  **Resume Refactor:** Implement specific `LanguageManager` methods required by the tools.
+

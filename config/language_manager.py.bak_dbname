@@ -128,51 +128,8 @@ class LanguageManager:
 
     @classmethod
     def get_dbname(cls, lang_code: str) -> str:
-        """Get database name identifier for the specified language.
-        
-        REQUIRED for locating XML dump files in data/raw/. 
-        Raises ValueError with clear message if missing or invalid.
-        """
-        config = cls.get_config(lang_code)
-        
-        # Check if wikipedia section exists
-        if 'wikipedia' not in config:
-            raise ValueError(
-                f"Language config '{lang_code}' missing entire 'wikipedia' section. "
-                f"Required for dump file location. Config keys: {list(config.keys())}"
-            )
-        
-        dbname = cls._safe_get(config, 'wikipedia.dbname')
-        
-        if dbname is None:
-            raise ValueError(
-                f"Language config '{lang_code}' missing required 'wikipedia.dbname'. "
-                f"This value is required to locate XML dump files in data/raw/. "
-                f"Current wikipedia keys: {list(config.get('wikipedia', {}).keys())}. "
-                f"Example: 'enwiki' for English Wikipedia."
-            )
-        
-        if not isinstance(dbname, str):
-            raise ValueError(
-                f"Invalid dbname type for '{lang_code}': {type(dbname)}. Must be string."
-            )
-        
-        dbname = dbname.strip()
-        if dbname == '':
-            raise ValueError(
-                f"Empty dbname for '{lang_code}'. Must be non-empty string."
-            )
-        
-        # Less restrictive: allow alphanumeric, underscores, hyphens
-        # This matches actual Wikipedia dump naming conventions
-        cleaned = dbname.replace('_', '').replace('-', '')
-        if not cleaned.isalnum():
-            raise ValueError(
-                f"Invalid dbname format for '{lang_code}': '{dbname}'. "
-                f"Must be alphanumeric with underscores/hyphens (e.g., 'enwiki', 'wikidatawiki')."
-            )
-        
-        return dbname
+        """Get database name identifier for the specified language."""
+        return cls.get_config(lang_code)['wikipedia']['dbname']
 
     @classmethod
     def get_text_cleanup_patterns(cls, lang_code: str) -> List[str]:
@@ -194,22 +151,9 @@ class LanguageManager:
 
     @classmethod
     def get_language_info(cls, lang_code: str) -> Dict[str, str]:
-        """
-        Get basic language information (code, name, local_name).
-        Returns safe defaults if configuration is missing.
-        """
+        """Get basic language information (code, name, local_name)."""
         config = cls.get_config(lang_code)
-        info = cls._safe_get(config, 'language')
-        
-        if info is None:
-            # Return safe defaults if 'language' section is missing
-            return {
-                'code': lang_code,
-                'name': lang_code,       # Fallback to code
-                'local_name': lang_code, # Fallback to code
-                'iso_code': f"{lang_code}-{lang_code.upper()}" # Best guess
-            }
-        return info
+        return config['language']
 
     @classmethod
     def get_processing_config(cls, lang_code: str) -> Dict[str, Any]:
