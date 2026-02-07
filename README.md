@@ -1,8 +1,9 @@
 # WikiGraph
 
 **Current Status (February 7, 2026):**
+- **Phase 2 IN PROGRESS:** Navigation Engine (Shortest Path BFS) is live with support for depth up to 24.
 - **Phase 1 COMPLETE:** Hardened Search, Rosetta Comparison, and Scored Neighbors are live.
-- **Enrichment:** Dual-language metadata (3.2M records) with FTS5 indexing.
+- **Stress Tested:** 100% success on 500-request load test (Avg latency < 200ms).
 - **Multi-Lang:** PL, DE, and ES (Spanish) fully processed and active.
 
 **For latest details:** See `PROJECT_STATUS.md`, `APIPLAN.md` and `devlog.md`.

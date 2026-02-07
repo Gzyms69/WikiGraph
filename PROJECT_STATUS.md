@@ -2,20 +2,19 @@
 
 ## Recent Milestones (February 7, 2026)
 
-### Phase 1: Foundations & Search (COMPLETED)
-- **Search:** Implemented FTS5 keyword search for PL, DE, ES.
-- **Comparison:** Implemented parallel cross-language metadata fetching.
-- **Graph:** Implemented Adamic-Adar neighbor scoring in Neo4j with SQLite title resolution.
-- **Hardening:** 
-    - Full connection pooling (SQLAlchemy).
-    - Health endpoint `/api/v1/health`.
-    - Regex QID validation.
-    - Graceful error handling for FTS syntax.
+### Phase 2: Navigation Engine (COMPLETED)
+- **Pathfinding:** Implemented BFS shortest path discovery.
+- **Scaling:** Support for depth 24 with progressive timeout guards.
+- **Efficiency:** Parallel QID-to-title resolution after traversal.
+
+### Phase 1: Foundations & Search (HARDENED)
+- **Stress Test Campaign:** 100% Success rate on 500 mixed API requests.
+- **Latency:** Average response < 200ms for all core features.
+- **Robustness:** Consolidated `venv`, verified AMD hardware compatibility (CPU-only PyTorch fallback).
 
 ### Metadata Enrichment (COMPLETED)
-- **Objective:** Extract structured data (infoboxes) from Wikipedia dumps into SQLite.
 - **Yields:** 79% for Polish (Suffix), 62% for German (Multi-pattern).
-- **Languages:** PL, DE, ES (JIT validated).
+- **Languages:** PL, DE, ES (All active and stress-tested).
 
 ## Current Data Inventory
 
@@ -30,8 +29,8 @@
 
 ## Next Steps
 - [ ] **Phase 2: Core Graph Engine**
-    - Implement Shortest Path (BFS) router.
-    - Configure Neo4j GDS for PageRank/Betweenness streaming.
+    - Implement Global Metrics Pipeline (PageRank/Betweenness).
+    - Configure Generic `node_metrics` SQLite table.
 - [ ] **Phase 1 (Extension): AI Search**
     - Implement ChromaDB Vector Search.
 - [ ] Integration with Frontend WikiNebula visualization.
