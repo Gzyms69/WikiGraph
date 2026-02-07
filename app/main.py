@@ -1,10 +1,16 @@
 from fastapi import FastAPI
 from app.core.config import settings
 from app.api.routers import health, concept, concept_by_lang, traverse
+from app.api.v1.routers import entity as entity_v1
+from app.api.v1.routers import search as search_v1
 
 app = FastAPI(title="WikiGraph API", version="0.1.0")
 
-# Mount health under /api for consistency
+# Mount V1 API
+app.include_router(entity_v1.router, prefix="/api/v1/entity", tags=["v1"])
+app.include_router(search_v1.router, prefix="/api/v1/search", tags=["v1", "search"])
+
+# Mount Legacy API (v0)
 app.include_router(health.router, prefix="/api")
 app.include_router(concept.router, prefix="/api")
 app.include_router(concept_by_lang.router, prefix="/api")
