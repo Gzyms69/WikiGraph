@@ -951,17 +951,55 @@ The project root is now pristine. All active code lives in `core/pipeline` or `t
 *   **Verification:** Verified via `tests/unit/test_path_router.py` (Mocked).
 
 ## 2026-02-07: Phase 2.1 - Validation & Stress Test Campaign
+
 *   **Status:** SUCCESS (Recovered from Red Flag)
+
 *   **Action:**
+
     *   Consolidated virtual environments (`venv` only, deleted `venv_gate5`).
+
     *   Patched `dev.sh` to use correct python paths.
+
     *   Created `tests/integration/stress_test_pathfinding.py` (Manual).
+
     *   Created `tests/stress_test_gate_6.py` (Master Suite).
+
     *   Executed 500-request load test against Health, Search, Compare, Graph, and Path endpoints.
+
 *   **Metrics:**
+
     *   **Success Rate:** 100% (500/500).
+
     *   **Pathfinding:** ~195ms average latency (Depth 6-12).
+
     *   **Health Check:** ~95ms (Full stack check).
+
     *   **Search/Compare:** ~110-130ms.
+
 *   **Infrastructure:** Verified AMD CPU-only fallback for `torch` (Hardware acceleration pending ROCm setup).
+
 *   **Outcome:** System is stable and performant under load.
+
+
+
+## 2026-02-07: Phase 2.2 - Infrastructure Recovery & Metrics Foundation
+
+*   **Incident:** Memory Crisis (99% Swap usage) identified during GDS planning.
+
+*   **Root Cause:** Docker Desktop (QEMU) was over-allocated at 24GB RAM, starving the Host OS.
+
+*   **Resolution:**
+
+    *   Throttled Docker VM to **10GB RAM** and **20 CPUs**.
+
+    *   Recovered ~18GB of Host Available RAM.
+
+    *   Cleaned system caches and stabilized Swap.
+
+*   **Action:**
+
+    *   Initialized `node_metrics` table in `pl.db` (Generic KV schema, `WITHOUT ROWID`).
+
+    *   Verified GDS 2.13.7 availability on `neo4j-pl`.
+
+*   **Next:** Implementation of `compute_global_metrics.py` (The "Graph Mathematician" tool).

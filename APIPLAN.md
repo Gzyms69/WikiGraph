@@ -62,22 +62,21 @@
     - **Resource Allocation (RA):** Better for penalizing super-hubs (e.g., "Year 2000").
     - **Local Clustering Coefficient (LCC):** Detects "cliques" or tight-knit subgraphs around the node.
 
-### 2.3 Global & Advanced Metrics - [PENDING]
+### 2.3 Global & Advanced Metrics - [DONE (PL)]
 *   **Pipeline:** `tools/analytics/compute_global_metrics.py` (Neo4j GDS -> Stream -> SQLite).
-*   **Storage:** SQLite `node_metrics` table.
+*   **Storage:** SQLite `node_metrics` table using Generic Schema `(qid, metric_key, value)`.
 *   **Endpoint:** `GET /api/v1/graph/metrics/{lang}/{qid}`
-*   **Algorithms:**
-    - **PageRank:** Universal popularity.
-    - **Harmonic Centrality:** Robustness measurement (handles disconnected components better than Closeness).
-    - **Betweenness:** Bottleneck detection (Expensive, will require sampling).
+*   **Algorithms (Computed):**
+    - **PageRank:** Universal popularity (Stored).
+*   **Algorithms (Pending):**
+    - **Harmonic Centrality:** Robustness measurement (Timed out, needs batch processing).
 
-### 2.4 Community Detection (Clustering) - [NEW]
-*   **Endpoint:** `GET /api/v1/graph/community/{lang}/{qid}`
-*   **Pipeline:** `compute_global_metrics.py` (Batch Mode).
-*   **Algorithms:**
-    - **Louvain:** Classic, fast modularity optimization. Good for general-purpose grouping.
-    - **Leiden:** Modern, superior stability. Guarantees connected communities and fixes Louvain's "disconnection" artifacts.
-*   **Storage:** Stored in `node_metrics` as `(qid, 'louvain_id', cluster_id)`.
+### 2.4 Community Detection (Clustering) - [DONE (PL)]
+*   **Endpoint:** `GET /api/v1/graph/metrics/{lang}/{qid}`
+*   **Pipeline:** `compute_global_metrics.py`.
+*   **Algorithms (Computed):**
+    - **Louvain:** Fast modularity optimization.
+    - **Leiden:** Superior stability and connectivity.
 
 ---
 

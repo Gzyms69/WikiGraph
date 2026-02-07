@@ -138,6 +138,32 @@ class SQLiteService:
             limit
         )
 
+    def _sync_get_node_metrics(self, db_path: str, qid: str) -> Dict[str, float]:
+        metrics = {}
+        try:
+            with SQLitePool.get_connection(db_path) as conn:
+                cursor = conn.cursor()
+                query = "SELECT metric_key, metric_value FROM node_metrics WHERE qid = ?"
+                cursor.execute(query, (qid,))
+                for row in cursor.fetchall():
+                    metrics[row[0]] = row[1]
+        except Exception as e:
+            logger.error(f"Metrics fetch error in {db_path}: {e}")
+        return metrics
+
+    async def get_node_metrics(self, lang: str, qid: str) -> Dict[str, float]:
+        """
+        Async fetch of all graph metrics for a node.
+        """
+        config = LanguageService.get_config(lang)
+        loop = asyncio.get_running_loop()
+        return await loop.run_in_executor(
+            None,
+            self._sync_get_node_metrics,
+            config.db_path,
+            qid
+        )
+
     async def get_compare_metadata(self, qid: str, langs: List[str]) -> Dict[str, Any]:
         """
         Fetches metadata for a QID across multiple languages in parallel.
