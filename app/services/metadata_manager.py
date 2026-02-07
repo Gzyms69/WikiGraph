@@ -3,6 +3,7 @@ import json
 from pathlib import Path
 from typing import Optional, List, Dict
 import logging
+from app.services.sqlite_pool import SQLitePool
 
 logger = logging.getLogger(__name__)
 
@@ -28,24 +29,23 @@ class MetadataManager:
             return None
             
         try:
-            conn = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
-            cursor = conn.cursor()
-            query = """
-                SELECT p.infobox
-                FROM pages p
-                JOIN id_mapping m ON p.page_id = m.page_id
-                WHERE m.qid = ?
-            """
-            cursor.execute(query, (qid,))
-            row = cursor.fetchone()
-            conn.close()
-            
-            if row and row[0]:
-                try:
-                    return json.loads(row[0])
-                except json.JSONDecodeError:
-                    logger.error(f"JSON decode failed for {lang}/{qid}")
-                    return None
+            with SQLitePool.get_connection(str(db_path)) as conn:
+                cursor = conn.cursor()
+                query = """
+                    SELECT p.infobox
+                    FROM pages p
+                    JOIN id_mapping m ON p.page_id = m.page_id
+                    WHERE m.qid = ?
+                """
+                cursor.execute(query, (qid,))
+                row = cursor.fetchone()
+                
+                if row and row[0]:
+                    try:
+                        return json.loads(row[0])
+                    except json.JSONDecodeError:
+                        logger.error(f"JSON decode failed for {lang}/{qid}")
+                        return None
             return None
         except Exception as e:
             logger.error(f"Infobox fetch failed for {lang}/{qid}: {e}")
@@ -60,18 +60,17 @@ class MetadataManager:
             return None
             
         try:
-            conn = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
-            cursor = conn.cursor()
-            query = """
-                SELECT p.title 
-                FROM pages p 
-                JOIN id_mapping m ON p.page_id = m.page_id 
-                WHERE m.qid = ?
-            """
-            cursor.execute(query, (qid,))
-            row = cursor.fetchone()
-            conn.close()
-            return row[0] if row else None
+            with SQLitePool.get_connection(str(db_path)) as conn:
+                cursor = conn.cursor()
+                query = """
+                    SELECT p.title 
+                    FROM pages p 
+                    JOIN id_mapping m ON p.page_id = m.page_id 
+                    WHERE m.qid = ?
+                """
+                cursor.execute(query, (qid,))
+                row = cursor.fetchone()
+                return row[0] if row else None
         except Exception as e:
             logger.error(f"Metadata fetch failed for {lang}/{qid}: {e}")
             return None
@@ -87,21 +86,20 @@ class MetadataManager:
         if not db_path.exists(): return {}
 
         try:
-            conn = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
-            cursor = conn.cursor()
-            
-            # SQLite limit is usually 999 vars, but we paginate to 10-50 neighbors so it's safe.
-            placeholders = ','.join(['?'] * len(qids))
-            query = f"""
-                SELECT m.qid, p.title 
-                FROM pages p 
-                JOIN id_mapping m ON p.page_id = m.page_id 
-                WHERE m.qid IN ({placeholders})
-            """
-            cursor.execute(query, qids)
-            result = {row[0]: row[1] for row in cursor.fetchall()}
-            conn.close()
-            return result
+            with SQLitePool.get_connection(str(db_path)) as conn:
+                cursor = conn.cursor()
+                
+                # SQLite limit is usually 999 vars, but we paginate to 10-50 neighbors so it's safe.
+                placeholders = ','.join(['?'] * len(qids))
+                query = f"""
+                    SELECT m.qid, p.title 
+                    FROM pages p 
+                    JOIN id_mapping m ON p.page_id = m.page_id 
+                    WHERE m.qid IN ({placeholders})
+                """
+                cursor.execute(query, qids)
+                result = {row[0]: row[1] for row in cursor.fetchall()}
+                return result
         except Exception as e:
             logger.error(f"Batch metadata fetch failed for {lang}: {e}")
             return {}
