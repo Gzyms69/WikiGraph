@@ -137,3 +137,19 @@ class SQLiteService:
             query,
             limit
         )
+
+    async def get_compare_metadata(self, qid: str, langs: List[str]) -> Dict[str, Any]:
+        """
+        Fetches metadata for a QID across multiple languages in parallel.
+        """
+        tasks = [self.get_concept_metadata(lang, qid) for lang in langs]
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+        
+        comparison = {}
+        for lang, res in zip(langs, results):
+            if isinstance(res, Exception):
+                logger.error(f"Comparison fetch failed for {lang}/{qid}: {res}")
+                comparison[lang] = None
+            else:
+                comparison[lang] = res
+        return comparison
