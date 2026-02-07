@@ -120,31 +120,60 @@ function check_status() {
 }
 
 CMD=$1
+ARG=$2
+
+# Python Container Manager Wrapper
+function manage_containers() {
+    PYTHONPATH="$PROJECT_ROOT" "$PROJECT_ROOT/venv_gate5/bin/python3" "$PROJECT_ROOT/tools/ops/manage_containers.py" "$@"
+}
 
 case "$CMD" in
     start)
-        start_container "pl" 7474 7687
-        start_container "de" 7475 7688
+        if [ -z "$ARG" ]; then
+            echo "Usage: ./dev.sh start {lang|all|backend}"
+            exit 1
+        fi
         
-        wait_for_neo4j "pl" 
-        wait_for_neo4j "de" 
-        
-        start_backend
-        check_status
+        if [ "$ARG" == "backend" ]; then
+            start_backend
+        else
+            manage_containers start "$ARG"
+            # If all, also check backend? No, keep separate for now or explicit.
+        fi
+        manage_containers status
+        check_status # Backend status
         ;;
     stop)
-        stop_all
+        if [ -z "$ARG" ] || [ "$ARG" == "all" ]; then
+             manage_containers stop all
+             # Stop backend
+            if pgrep -f "uvicorn app.main:app" > /dev/null; then
+                pkill -f "uvicorn app.main:app"
+                echo -e "   Backend stopped."
+            fi
+        else
+             manage_containers stop "$ARG"
+        fi
         ;;
     restart)
-        stop_all
-        sleep 2
-        $0 start
+         if [ -z "$ARG" ]; then
+            manage_containers restart all
+            # Restart backend
+            if pgrep -f "uvicorn app.main:app" > /dev/null; then
+                pkill -f "uvicorn app.main:app"
+            fi
+            sleep 2
+            start_backend
+         else
+            manage_containers restart "$ARG"
+         fi
         ;;
     status)
+        manage_containers status
         check_status
         ;;    
     *)
-        echo "Usage: ./dev.sh {start|stop|restart|status}"
+        echo "Usage: ./dev.sh {start|stop|restart|status} [lang]"
         exit 1
         ;; 
 esac

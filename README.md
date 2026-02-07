@@ -1,12 +1,11 @@
 # WikiGraph
 
-**Current Status (February 1, 2026):**
-- **Migration Complete:** "Project Clean Slate" executed. Codebase structured for modularity.
-- **German Extraction:** Validated (works with prefix pattern).
-- **Polish Extraction:** Complexity analyzed (requires suffix pattern support).
-- **Focus:** German-first approach remains active.
+**Current Status (February 7, 2026):**
+- **Phase 1 COMPLETE:** Hardened Search, Rosetta Comparison, and Scored Neighbors are live.
+- **Enrichment:** Dual-language metadata (3.2M records) with FTS5 indexing.
+- **Multi-Lang:** PL, DE, and ES (Spanish) fully processed and active.
 
-**For latest details:** See `PROJECT_STATUS.md` and `devlog.md`.
+**For latest details:** See `PROJECT_STATUS.md`, `APIPLAN.md` and `devlog.md`.
 
 WikiGraph is a language-agnostic tool designed to process Wikipedia database dumps and convert them into a knowledge graph using Neo4j for topology and SQLite for metadata storage. It allows for offline analysis, pathfinding, and visualization of Wikipedia's link structure for any configured language.
 
@@ -46,6 +45,7 @@ The system uses a dual-database architecture optimized for performance and memor
 
 ### 2. SQLite (Metadata & Content)
 *   **Purpose:** Stores rich metadata, titles, text, and computed statistics.
+*   **Search:** Includes **FTS5 Virtual Tables** (`articles_fts`) for sub-millisecond keyword matching.
 *   **Tables:**
     *   `pages`: Page metadata. Columns:
         *   `page_id`, `title`, `namespace`, `len`
@@ -54,6 +54,7 @@ The system uses a dual-database architecture optimized for performance and memor
     *   `id_mapping`: Maps `page_id` to `qid`.
     *   `link_targets`: Raw target strings from dumps.
     *   `category_links`: Category hierarchy (if imported).
+    *   **`articles_fts`**: FTS5 table for title indexing.
 
 ## Prerequisites
 
@@ -132,6 +133,7 @@ The project employs validation steps at key stages of the pipeline:
 *   **Gate 4:** Pre-Import Safety Checks.
 *   **Gate 5:** Post-Import Graph Verification (Connectivity, Integrity).
 *   **Gate 5A:** Backend Integration & Health Checks.
+*   **Phase 1 Hardening:** QID Regex Validation, Connection Pooling (SQLAlchemy), Lifecycle Management (Lifespan), and FTS Syntax Robustness.
 
 ## License
 

@@ -16,8 +16,9 @@ from pathlib import Path
 from mwsql import Dump
 from tqdm import tqdm
 
-def get_db_path(lang):
-    return Path(f"data/db/{lang}.db")
+# Add project root to path for LanguageManager
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+from config.language_manager import LanguageManager
 
 def load_mappings(db_path):
     print("🧠 Loading metadata into memory...")
@@ -65,7 +66,9 @@ def load_link_targets(db_path):
     return target_map
 
 def generate_csvs(lang, limit=None):
-    db_path = get_db_path(lang)
+    lang_paths = LanguageManager.get_paths(lang)
+    db_path = lang_paths['db']
+    
     if not db_path.exists():
         print(f"❌ Database not found: {db_path}")
         sys.exit(1)
@@ -73,7 +76,7 @@ def generate_csvs(lang, limit=None):
     id_map, title_map = load_mappings(db_path)
     target_map = load_link_targets(db_path)
     
-    out_dir = Path(f"data/neo4j_bulk/{lang}")
+    out_dir = lang_paths['neo4j_bulk_dir']
     out_dir.mkdir(parents=True, exist_ok=True)
     
     nodes_file = out_dir / "nodes.csv"
@@ -90,7 +93,9 @@ def generate_csvs(lang, limit=None):
             writer.writerow([qid, 0, "Concept"])
             
     # --- Step 2: Generate Edges CSV ---
-    pl_dump = Path(f"data/raw/{lang}wiki-latest-pagelinks.sql.gz")
+    pl_filename = LanguageManager.get_dump_filename(lang, "pagelinks")
+    pl_dump = lang_paths['raw_dir'] / pl_filename
+    
     if not pl_dump.exists():
         print(f"❌ Missing pagelinks dump: {pl_dump}")
         sys.exit(1)

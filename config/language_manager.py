@@ -106,12 +106,14 @@ class LanguageManager:
     @classmethod
     def get_redirect_keywords(cls, lang_code: str) -> List[str]:
         """Get redirect keywords for the specified language."""
-        return cls._safe_get(cls.get_config(lang_code), 'wikipedia.redirect_keywords', [])
+        config = cls.get_config(lang_code)
+        return cls._safe_get(config, 'wikipedia.redirect_keywords', [])
 
     @classmethod
     def get_namespace_prefixes(cls, lang_code: str) -> Dict[str, List[str]]:
         """Get namespace prefixes for the specified language."""
-        return cls._safe_get(cls.get_config(lang_code), 'wikipedia.namespace_prefixes', {})
+        config = cls.get_config(lang_code)
+        return cls._safe_get(config, 'wikipedia.namespace_prefixes', {})
 
     @classmethod
     def get_all_namespace_prefixes(cls, lang_code: str) -> List[str]:
@@ -225,6 +227,110 @@ class LanguageManager:
             return {'enabled': False}
             
         return processing_config
+
+    @classmethod
+    def get_infobox_config(cls, lang_code: str) -> Dict[str, Any]:
+        """
+        Get infobox extraction configuration.
+        Returns safe defaults (empty lists/dict) if missing.
+        """
+        config = cls.get_config(lang_code)
+        infobox_config = cls._safe_get(config, 'infobox', {})
+        
+        return {
+            'template_prefixes': infobox_config.get('template_prefixes', []),
+            'template_suffixes': infobox_config.get('template_suffixes', []),
+            'parameter_map': infobox_config.get('parameter_map', {})
+        }
+
+    @classmethod
+    def get_text_processing_config(cls, lang_code: str) -> Dict[str, Any]:
+        """
+        Get text processing configuration (e.g., has_spaces).
+        Returns safe defaults.
+        """
+        config = cls.get_config(lang_code)
+        text_config = cls._safe_get(config, 'text_processing', {})
+        
+        return {
+            'has_spaces': text_config.get('has_spaces', True),
+            'encoding': text_config.get('encoding', 'utf-8')
+        }
+
+    @classmethod
+    def get_infrastructure_config(cls, lang_code: str) -> Dict[str, Any]:
+        """
+        Get infrastructure configuration (ports).
+        Returns empty dict if missing.
+        """
+        config = cls.get_config(lang_code)
+        infra_config = cls._safe_get(config, 'infrastructure', {})
+        
+        return {
+            'ports': infra_config.get('ports', {})
+        }
+
+    @classmethod
+    def get_importable_namespaces(cls, lang_code: str) -> List[int]:
+        """
+        Get the list of namespaces to import into the system.
+        Defaults to [0, 14] (Articles and Categories).
+        """
+        config = cls.get_config(lang_code)
+        return cls._safe_get(config, 'processing.import_namespaces', [0, 14])
+
+    @classmethod
+    def get_dump_filename(cls, lang_code: str, dump_type: str, date: str = "latest") -> str:
+        """
+        Construct a standard Wikipedia dump filename.
+        Example: dewiki-latest-pages-articles-multistream.xml.bz2
+        """
+        dbname = cls.get_dbname(lang_code)
+        
+        # Mapping dump types to their extensions
+        extensions = {
+            "pages-articles-multistream": ".xml.bz2",
+            "pages-articles-multistream-index": ".txt.bz2",
+            "page": ".sql.gz",
+            "pagelinks": ".sql.gz",
+            "redirect": ".sql.gz",
+            "langlinks": ".sql.gz",
+            "page_props": ".sql.gz",
+            "categorylinks": ".sql.gz",
+            "linktarget": ".sql.gz"
+        }
+        
+        ext = extensions.get(dump_type, ".sql.gz")
+        return f"{dbname}-{date}-{dump_type}{ext}"
+
+    @classmethod
+    def get_paths(cls, lang_code: str) -> Dict[str, Path]:
+        """
+        Get standardized paths for a specific language.
+        Performs internal validation to ensure project structure is sane.
+        """
+        # Resolve project root (relative to this file: ../../)
+        project_root = Path(__file__).parent.parent.resolve()
+        
+        paths = {
+            'raw_dir': project_root / "data" / "raw",
+            'db_dir': project_root / "data" / "db",
+            'processed_dir': project_root / "data" / "processed" / lang_code,
+            'neo4j_bulk_dir': project_root / "data" / "neo4j_bulk" / lang_code,
+            'checkpoints_dir': project_root / "data" / "checkpoints",
+            'db': project_root / "data" / "db" / f"{lang_code}.db"
+        }
+        
+        # Validation: Ensure data directories exist (or at least their parents)
+        for name, path in paths.items():
+            parent = path.parent if path.suffix else path
+            if not parent.exists():
+                # We don't auto-create here to remain read-only/safe, 
+                # but we warn or raise if the base structure is missing.
+                if not (project_root / "data").exists():
+                    raise RuntimeError(f"Critical failure: 'data/' directory missing in {project_root}")
+        
+        return paths
 
     @classmethod
     def clear_cache(cls) -> None:

@@ -6,7 +6,7 @@ LANG=${1:-pl}
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 DATA_DIR="$PROJECT_ROOT/data/neo4j_data/$LANG"
 BULK_DIR="$PROJECT_ROOT/data/neo4j_bulk/$LANG"
-CONTAINER_NAME="neo4j-$LANG"
+CONTAINER_NAME="wikigraph-neo4j-$LANG"
 
 echo -e "\033[0;34m📦 WikiGraph Bulk Importer ($LANG)\033[0m"
 

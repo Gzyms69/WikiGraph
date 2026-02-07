@@ -13,6 +13,10 @@ import os
 from pathlib import Path
 from mwsql import Dump
 
+# Add project root to path for LanguageManager
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+from config.language_manager import LanguageManager
+
 # Schema with link_targets
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS pages (
@@ -82,7 +86,7 @@ def fix_encoding(text):
             return text
     return text
 
-def process_page_dump(file_path, db_path, limit=None):
+def process_page_dump(file_path, db_path, lang, limit=None):
     conn = get_db_connection(db_path)
     cursor = conn.cursor()
     print(f"📄 Processing {file_path.name}...")
@@ -93,6 +97,8 @@ def process_page_dump(file_path, db_path, limit=None):
     batch, batch_size = [], 100000
     count = 0
     cursor.execute("BEGIN TRANSACTION")
+    
+    import_namespaces = LanguageManager.get_importable_namespaces(lang)
     
     for row in dump.rows():
         if limit and count >= limit: break
@@ -107,7 +113,7 @@ def process_page_dump(file_path, db_path, limit=None):
             is_redir = int(row[3])
             p_len = int(row[9])
             
-            if ns in [0, 14]:
+            if ns in import_namespaces:
                 batch.append((p_id, title, ns, is_redir, p_len))
                 count += 1
         except (ValueError, IndexError): continue
@@ -120,7 +126,7 @@ def process_page_dump(file_path, db_path, limit=None):
     cursor.execute("COMMIT")
     conn.close()
 
-def process_linktarget_dump(file_path, db_path, limit=None):
+def process_linktarget_dump(file_path, db_path, lang, limit=None):
     conn = get_db_connection(db_path)
     cursor = conn.cursor()
     print(f"🎯 Processing {file_path.name}...")
@@ -168,7 +174,7 @@ def process_linktarget_dump(file_path, db_path, limit=None):
     conn.close()
     print(f"   Processed {count} link targets.")
 
-def process_category_dump(file_path, db_path, limit=None):
+def process_category_dump(file_path, db_path, lang, limit=None):
     conn = get_db_connection(db_path)
     cursor = conn.cursor()
     print(f"🏷️ Processing {file_path.name}...")
@@ -207,7 +213,7 @@ def process_category_dump(file_path, db_path, limit=None):
     cursor.execute("COMMIT")
     conn.close()
 
-def process_props_dump(file_path, db_path, limit=None):
+def process_props_dump(file_path, db_path, lang, limit=None):
     conn = get_db_connection(db_path)
     cursor = conn.cursor()
     print(f"🔗 Processing {file_path.name}...")
@@ -246,27 +252,28 @@ def main():
     parser.add_argument("--only-targets", action="store_true", help="Process only link_targets")
     args = parser.parse_args()
     
-    if args.db:
-        db_path = Path(args.db)
-    else:
-        db_path = Path(f"data/db/{args.lang}.db")
+    lang_paths = LanguageManager.get_paths(args.lang)
+    db_path = Path(args.db) if args.db else lang_paths['db']
         
     if args.init: init_db(db_path)
         
-    raw = Path("data/raw")
+    raw_dir = lang_paths['raw_dir']
     
+    def get_path(dump_type):
+        return raw_dir / LanguageManager.get_dump_filename(args.lang, dump_type)
+
     if args.only_targets:
-        process_linktarget_dump(raw / f"{args.lang}wiki-latest-linktarget.sql.gz", db_path, args.limit)
+        process_linktarget_dump(get_path("linktarget"), db_path, args.lang, args.limit)
     else:
         files = [
-            (raw / f"{args.lang}wiki-latest-page.sql.gz", process_page_dump),
-            (raw / f"{args.lang}wiki-latest-linktarget.sql.gz", process_linktarget_dump),
-            (raw / f"{args.lang}wiki-latest-categorylinks.sql.gz", process_category_dump),
-            (raw / f"{args.lang}wiki-latest-page_props.sql.gz", process_props_dump)
+            (get_path("page"), process_page_dump),
+            (get_path("linktarget"), process_linktarget_dump),
+            (get_path("categorylinks"), process_category_dump),
+            (get_path("page_props"), process_props_dump)
         ]
         
         for p, func in files:
-            if p.exists(): func(p, db_path, args.limit)
+            if p.exists(): func(p, db_path, args.lang, args.limit)
             else: print(f"⚠️ Missing {p}")
 
 if __name__ == "__main__":

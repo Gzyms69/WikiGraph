@@ -13,7 +13,7 @@ class ConceptMetadata(BaseModel):
 
 @router.get("/{qid}", response_model=Dict[str, Optional[ConceptMetadata]])
 async def compare_entities(
-    qid: str = Path(..., description="Wikidata QID"),
+    qid: str = Path(..., description="Wikidata QID", pattern=r"^Q[0-9]+$"),
     langs: str = Query("pl,de", description="Comma-separated language codes"),
     sqlite: SQLiteService = Depends(deps.get_sqlite_service)
 ):

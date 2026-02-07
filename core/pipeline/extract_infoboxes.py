@@ -58,13 +58,13 @@ def quick_has_infobox(wikitext, prefixes, suffixes):
     """Ultra-fast check for infobox presence using string searching."""
     if not wikitext:
         return False
-    # Check prefixes
+    # Check prefixes (case-insensitive)
+    lower_text = wikitext.lower()
     for prefix in prefixes:
-        if f"{{{{{prefix}" in wikitext:
+        if f"{{{{{prefix.lower()}" in lower_text:
             return True
-    # Check suffixes (case-insensitive loose check)
+    # Check suffixes (case-insensitive)
     if suffixes:
-        lower_text = wikitext.lower()
         for suffix in suffixes:
             if suffix.lower() in lower_text:
                 return True
@@ -113,26 +113,31 @@ def main():
     
     # 1. Config Setup
     try:
-        config = LanguageManager.get_config(args.lang)
-        template_prefixes = config['infobox'].get('template_prefixes', [])
-        template_suffixes = config['infobox'].get('template_suffixes', [])
-        param_map = config['infobox'].get('parameter_map', {})
+        infobox_config = LanguageManager.get_infobox_config(args.lang)
+        template_prefixes = infobox_config['template_prefixes']
+        template_suffixes = infobox_config['template_suffixes']
+        param_map = infobox_config['parameter_map']
     except Exception as e:
         print(f"❌ Config Error: {e}")
         sys.exit(1)
     
     if not template_prefixes and not template_suffixes:
-        print(f"❌ No template prefixes OR suffixes configured for language '{args.lang}'")
-        sys.exit(1)
+        print(f"⚠️  Warning: No template prefixes OR suffixes configured for language '{args.lang}'.")
+        print("   Infobox extraction will be skipped.")
+        return
 
     # 2. Files Setup
-    xml_path = Path(f"data/raw/{args.lang}wiki-latest-pages-articles-multistream.xml.bz2")
+    lang_paths = LanguageManager.get_paths(args.lang)
+    xml_filename = LanguageManager.get_dump_filename(args.lang, "pages-articles-multistream")
+    xml_path = lang_paths['raw_dir'] / xml_filename
+    
     if not xml_path.exists():
-        xml_path = next(Path("data/raw").glob(f"{args.lang}wiki-*-pages-articles-multistream.xml.bz2"), None)
+        # Try finding any multistream XML if the standard one is missing (e.g. dated version)
+        xml_path = next(lang_paths['raw_dir'].glob(f"{LanguageManager.get_dbname(args.lang)}-*-pages-articles-multistream.xml.bz2"), None)
 
-    db_path = Path(f"data/db/{args.lang}.db")
+    db_path = lang_paths['db']
     if not xml_path or not xml_path.exists():
-        print(f"❌ XML dump not found: {xml_path}")
+        print(f"❌ XML dump not found in {lang_paths['raw_dir']}")
         sys.exit(1)
 
     # 3. DB Setup
@@ -141,7 +146,8 @@ def main():
     conn.execute("PRAGMA journal_mode = MEMORY")
     
     # 4. Checkpoint Setup
-    checkpoint = CheckpointManager(args.lang)
+    checkpoint_dir = lang_paths['checkpoints_dir']
+    checkpoint = CheckpointManager(args.lang, checkpoint_dir=checkpoint_dir)
     resume_mode = checkpoint.load_checkpoint()
     skip_until_found = resume_mode
     if resume_mode:

@@ -872,3 +872,65 @@ Executed `scripts/cleanup_phase_c.py` to archive 82 legacy and one-off scripts.
 The project root is now pristine. All active code lives in `core/pipeline` or `tools/ops`. All noise is archived.
 
 
+### 2026-02-01: Phase 5 Complete
+- Modernized LanguageManager with safe accessors and defaults.
+- Refactored core pipeline (parser, extractor, loader) for infinite scalability.
+- Implemented dynamic infrastructure controller (manage_containers.py) with hash-based port allocation.
+- Successfully resurrected JIT configuration generation for 300+ languages.
+- Verified with PL, DE, EN, ES, and FR (JIT).
+
+### 2026-02-05: Phase 5B - Full Spanish (ES) Pipeline Validation Complete
+- **Status:** SUCCESS
+- **Action:** Executed end-to-end pipeline validation for a new language (ES) using the updated JIT architecture.
+- **Metrics:**
+    - **Yield:** 72.6% Infobox extraction rate (1.47M extracted / 2.02M processed).
+    - **Speed:** 1,082 articles/second.
+    - **Graph:** 2.02M Nodes, 64.7M Edges imported into Neo4j.
+    - **Connectivity:** Confirmed high-degree node "Madrid" (54k edges).
+- **Architecture Validation:**
+    - **JIT Heuristics:** `fetch_lang_config.py` correctly identified Spanish patterns (`Ficha`, `Ficha de`).
+    - **Dynamic Ports:** ES assigned ports 7544/7757 via hash allocation, avoiding collisions with legacy PL/DE ports.
+    
+## 2026-02-07: Phase 1 (Search) - Task 1: SQLite Connection Pooling
+*   **Status:** SUCCESS
+*   **Action:**
+    *   Created `app/services/sqlite_pool.py` using `sqlalchemy.QueuePool`.
+    *   Refactored `SQLiteService` and `MetadataManager` to use the pool.
+    *   Verified concurrency with `tests/integration/test_sqlite_pool.py`.
+
+## 2026-02-07: Phase 1 (Search) - Task 2: FTS5 Setup
+*   **Status:** SUCCESS
+*   **Action:**
+    *   Created `tools/ops/setup_fts.py` to create/populate `articles_fts` virtual table.
+    *   Implemented auto-backup (`.db.bak_fts`) and `--revert` capability.
+    *   Executed on PL, DE, ES databases.
+
+## 2026-02-07: Phase 1 (Search) - Task 3: Search Router
+*   **Status:** SUCCESS
+*   **Action:**
+    *   Updated `SQLiteService` with `search_articles` method (using FTS5 `MATCH`).
+    *   Implemented `app/api/v1/routers/search.py`.
+    *   Mounted router at `/api/v1/search`.
+*   **Validation:** Verified logic via mocked unit test (`tests/unit/test_search_router.py`).
+
+## 2026-02-07: Phase 1 (Search) - Cleanup
+*   **Status:** SUCCESS
+*   **Action:**
+    *   Removed `config/languages/en.yaml` and `config/languages/fr.yaml` (bloat).
+    *   Deleted stray `data/db/en.db` and associated FTS backups.
+
+## 2026-02-07: Phase 1 (Search) - Task 4: Rosetta Comparison
+*   **Status:** SUCCESS
+*   **Action:**
+    *   Added `get_compare_metadata` to `SQLiteService` (Parallel fetch).
+    *   Implemented `app/api/v1/routers/compare.py`.
+    *   Mounted router at `/api/v1/compare/{qid}`.
+
+## 2026-02-07: Phase 1 (Search) - Task 5: Scored Neighbors
+*   **Status:** SUCCESS
+*   **Action:**
+    *   Implemented `get_scored_neighbors` in `Neo4jService` (Adamic-Adar, Jaccard).
+    *   Implemented `app/api/v1/routers/graph.py`.
+    *   Mounted router at `/api/v1/graph/neighbors/scored`.
+*   **Validation:** Verified logic via mocked unit test (`tests/unit/test_graph_router.py`).
+*   **Backup:** Git Push Complete (SHA 4ac0530).

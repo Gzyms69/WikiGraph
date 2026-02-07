@@ -27,14 +27,23 @@ def test_language_accessors(lang_code):
             ('get_namespace_prefixes', 'Namespace Prefixes'),
             ('get_dbname', 'DB Name'),
             ('get_language_info', 'Language Info'),
-            ('get_processing_config', 'Processing Config')
+            ('get_processing_config', 'Processing Config'),
+            ('get_importable_namespaces', 'Import Namespaces'),
+            ('get_dump_filename', 'Dump Filename (page)'),
+            ('get_paths', 'Standard Paths'),
+            ('get_infobox_config', 'Infobox Config'),
+            ('get_text_processing_config', 'Text Processing Config'),
+            ('get_infrastructure_config', 'Infrastructure Config')
         ] 
         
         for method_name, label in accessors:
             print(f"Testing {label} ({method_name})...", end=" ")
             try:
                 method = getattr(LanguageManager, method_name)
-                result = method(lang_code)
+                if method_name == 'get_dump_filename':
+                    result = method(lang_code, "page")
+                else:
+                    result = method(lang_code)
                 print(f"OK. Type: {type(result).__name__}, Value: {result}")
             except Exception as e:
                 print(f"CRASH: {type(e).__name__}: {e}")

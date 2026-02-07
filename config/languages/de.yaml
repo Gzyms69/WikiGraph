@@ -3,6 +3,10 @@ language:
   name: Wikipedia
   local_name: Deutsch
   iso_code: de-DE
+infrastructure:
+  ports:
+    http: 7475
+    bolt: 7688
 wikipedia:
   dbname: dewiki
   redirect_keywords:

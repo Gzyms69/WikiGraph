@@ -1,0 +1,54 @@
+language:
+  code: es
+  name: Wikipedia
+  local_name: es
+  iso_code: es-ES
+infrastructure:
+  ports:
+    http: 7544
+    bolt: 7757
+wikipedia:
+  dbname: eswiki
+  base_url: https://es.wikipedia.org/wiki/Wikipedia:Portada
+  api_url: https://es.wikipedia.org/w/api.php
+  redirect_keywords:
+  - '#REDIRECCIÓN'
+  - '#REDIRECCION'
+  - '#REDIRECT'
+  namespace_prefixes:
+    file: &id001
+    - 'File:'
+    - 'Archivo:'
+    - 'Image:'
+    - 'Imagen:'
+    template:
+    - 'Template:'
+    - 'Plantilla:'
+    category:
+    - 'Category:'
+    - 'Categoría:'
+    - 'CAT:'
+text_cleanup:
+  file_patterns: *id001
+processing:
+  enabled: true
+  import_namespaces:
+  - 0
+  - 14
+infobox:
+  template_prefixes:
+  - Ficha
+  - Ficha de
+  - Infobox
+  template_suffixes: []
+  parameter_map: {}
+ui:
+  search_placeholder: Search Wikipedia...
+  language_name: es
+  interface_translations:
+    show_connections: Show connections
+    related_articles: Related articles
+    categories: Categories
+text_processing:
+  has_spaces: true
+  encoding: utf-8

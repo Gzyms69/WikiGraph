@@ -60,3 +60,13 @@ class SQLitePool:
             yield conn
         finally:
             conn.close() # Returns to pool
+
+    @classmethod
+    def close_all(cls):
+        """
+        Dispose all connection pools.
+        """
+        for path, engine in cls._engines.items():
+            logger.info(f"Disposing pool for {path}")
+            engine.dispose()
+        cls._engines.clear()

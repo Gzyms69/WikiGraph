@@ -16,7 +16,7 @@ class ScoredNeighbor(BaseModel):
 @router.get("/neighbors/scored/{lang}/{qid}", response_model=List[ScoredNeighbor])
 async def get_scored_neighbors(
     lang: str = Path(..., description="Language code"),
-    qid: str = Path(..., description="Wikidata QID"),
+    qid: str = Path(..., description="Wikidata QID", pattern=r"^Q[0-9]+$"),
     metric: str = Query("adamic_adar", description="Similarity metric: adamic_adar, jaccard"),
     limit: int = Query(20, ge=1, le=100),
     neo4j: Neo4jService = Depends(deps.get_neo4j_service),

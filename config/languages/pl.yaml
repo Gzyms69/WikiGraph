@@ -3,6 +3,10 @@ language:
   name: Wikipedia
   local_name: Polski
   iso_code: pl-PL
+infrastructure:
+  ports:
+    http: 7474
+    bolt: 7687
 wikipedia:
   dbname: plwiki
   redirect_keywords:
