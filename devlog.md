@@ -1002,4 +1002,20 @@ The project root is now pristine. All active code lives in `core/pipeline` or `t
 
     *   Verified GDS 2.13.7 availability on `neo4j-pl`.
 
-*   **Next:** Implementation of `compute_global_metrics.py` (The "Graph Mathematician" tool).
+*   **Metrics Pivot:** 
+
+    - GDS Community Edition concurrency limit (4) identified.
+
+    - Substituted Harmonic Centrality with **HITS Authority** (Scalability).
+
+    - Substituted LCC with **Triangle Count** (Stability).
+
+*   **Status:** Core metrics (PageRank, Louvain, Leiden, HITS, Triangles) computed for PL (1.67M nodes).
+
+*   **Scaling:**
+
+    - **Spanish (ES):** Success. All 5 metrics computed for 2.02M nodes.
+
+    - **German (DE):** Partial. PageRank succeeded. HITS/Communities failed (OOM) due to 4GB Heap limit on 3.1M nodes.
+
+*   **Next:** Vector Search (Phase 1 Extension) or Frontend Integration.
