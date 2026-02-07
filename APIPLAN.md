@@ -48,19 +48,36 @@
     - **Variable Depth:** Supports researcher-level depth up to **24** steps (Default: 6).
     - **Safety:** Implemented **Progressive Timeouts** calculated as `max(5.0, depth * 1.5)` seconds. A depth-24 query is granted 36s before being killed.
     - **Resolution:** Path QIDs are resolved to titles in a single batch SQLite query after traversal.
+*   **Extension (Pending):** `GET /api/v1/graph/path/all/{lang}`
+    - **Algorithm:** `allShortestPaths` or `allSimplePaths` (with strict limit).
+    - **Use Case:** Finding alternative routes or context trails between concepts.
 
 ### 2.2 Local Neighborhood Scoring - [PARTIAL]
 *   **Endpoint:** `GET /api/v1/graph/neighbors/scored/{lang}/{qid}`
 *   **Implementation:** 
-    - Cypher-based local metrics (Adamic-Adar, Jaccard).
+    - Cypher-based local metrics.
     - Resolved against SQLite for titles in a single batch call.
 *   **Metrics (Current):** `adamic_adar`, `jaccard`.
+*   **Metrics (Pending):** 
+    - **Resource Allocation (RA):** Better for penalizing super-hubs (e.g., "Year 2000").
+    - **Local Clustering Coefficient (LCC):** Detects "cliques" or tight-knit subgraphs around the node.
 
 ### 2.3 Global & Advanced Metrics - [PENDING]
 *   **Pipeline:** `tools/analytics/compute_global_metrics.py` (Neo4j GDS -> Stream -> SQLite).
-*   **Storage:** SQLite `node_metrics` table using Generic Schema `(qid, metric_key, value)`.
+*   **Storage:** SQLite `node_metrics` table.
 *   **Endpoint:** `GET /api/v1/graph/metrics/{lang}/{qid}`
-*   **Algorithms:** PageRank, Betweenness, HITS.
+*   **Algorithms:**
+    - **PageRank:** Universal popularity.
+    - **Harmonic Centrality:** Robustness measurement (handles disconnected components better than Closeness).
+    - **Betweenness:** Bottleneck detection (Expensive, will require sampling).
+
+### 2.4 Community Detection (Clustering) - [NEW]
+*   **Endpoint:** `GET /api/v1/graph/community/{lang}/{qid}`
+*   **Pipeline:** `compute_global_metrics.py` (Batch Mode).
+*   **Algorithms:**
+    - **Louvain:** Classic, fast modularity optimization. Good for general-purpose grouping.
+    - **Leiden:** Modern, superior stability. Guarantees connected communities and fixes Louvain's "disconnection" artifacts.
+*   **Storage:** Stored in `node_metrics` as `(qid, 'louvain_id', cluster_id)`.
 
 ---
 
