@@ -73,7 +73,7 @@ function start_backend() {
     if pgrep -f "uvicorn app.main:app" > /dev/null; then
         echo -e "${GREEN}✅ Backend is already running (PID: $(pgrep -f "uvicorn app.main:app")).${NC}"
     else
-        nohup "$PROJECT_ROOT/venv_gate5/bin/uvicorn" app.main:app --host 0.0.0.0 --port $BACKEND_PORT > "$BACKEND_LOG" 2>&1 &
+        nohup "$PROJECT_ROOT/venv/bin/uvicorn" app.main:app --host 0.0.0.0 --port $BACKEND_PORT > "$BACKEND_LOG" 2>&1 &
         local pid=$!
         echo -e "${GREEN}✅ Backend started (PID: $pid). Logs: $BACKEND_LOG${NC}"
     fi
@@ -124,7 +124,7 @@ ARG=$2
 
 # Python Container Manager Wrapper
 function manage_containers() {
-    PYTHONPATH="$PROJECT_ROOT" "$PROJECT_ROOT/venv_gate5/bin/python3" "$PROJECT_ROOT/tools/ops/manage_containers.py" "$@"
+    PYTHONPATH="$PROJECT_ROOT" "$PROJECT_ROOT/venv/bin/python3" "$PROJECT_ROOT/tools/ops/manage_containers.py" "$@"
 }
 
 case "$CMD" in

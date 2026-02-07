@@ -67,3 +67,36 @@ class Neo4jService:
         params = {"qid": qid, "limit": limit}
         results = await self.manager.query(lang, query, params)
         return results if results else []
+
+    async def find_shortest_path(self, lang: str, from_qid: str, to_qid: str, max_depth: int = 6) -> List[str]:
+        """
+        Find shortest path between two QIDs using BFS.
+        Returns ordered list of QIDs.
+        """
+        driver = self.manager.get_driver(lang)
+        if not driver:
+            return []
+
+        # Cypher shortestPath uses BFS
+        query = """
+        MATCH p = shortestPath((start:Concept {qid: $start})-[*..%d]->(end:Concept {qid: $end}))
+        RETURN [n in nodes(p) | n.qid] as path
+        """ % max_depth
+
+        # Progressive Timeout Calculation
+        # Base: 2.0s
+        # Scale: max(1.5 * depth, 5.0)
+        # Depth 6 -> 9s
+        # Depth 24 -> 36s
+        timeout = max(5.0, max_depth * 1.5)
+
+        try:
+            # FIX: Use query() instead of query_all() as this is language-specific
+            results = await self.manager.query(lang, query, {"start": from_qid, "end": to_qid}, timeout=timeout)
+            if results and results[0].get("path"):
+                return results[0]["path"]
+            return []
+        except Exception as e:
+            # logger.error(f"Shortest path failed: {e}") # Add logger import if needed or print
+            print(f"Shortest path failed: {e}")
+            return []
