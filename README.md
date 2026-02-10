@@ -1,141 +1,164 @@
 # WikiGraph
 
-**Current Status (February 7, 2026):**
-- **Phase 2 IN PROGRESS:** Navigation Engine (Shortest Path BFS) is live with support for depth up to 24.
-- **Phase 1 COMPLETE:** Hardened Search, Rosetta Comparison, and Scored Neighbors are live.
-- **Stress Tested:** 100% success on 500-request load test (Avg latency < 200ms).
-- **Multi-Lang:** PL, DE, and ES (Spanish) fully processed and active.
+WikiGraph is a language-agnostic Knowledge Graph engine designed to process Wikipedia database dumps into a unified structure. It utilizes Neo4j for topological analysis and traversal, combined with SQLite for metadata storage and high-performance full-text search.
 
-**For latest details:** See `PROJECT_STATUS.md`, `APIPLAN.md` and `devlog.md`.
+## System Architecture
 
-WikiGraph is a language-agnostic tool designed to process Wikipedia database dumps and convert them into a knowledge graph using Neo4j for topology and SQLite for metadata storage. It allows for offline analysis, pathfinding, and visualization of Wikipedia's link structure for any configured language.
+The project employs a hybrid database architecture optimized for large-scale graph operations:
 
-## Overview
+### 1. Unified Backend API (FastAPI)
+The backend acts as a virtual bridge, federating queries across isolated language containers. It provides a standard REST interface for pathfinding, similarity scoring, and metadata retrieval.
 
-The system supports multiple languages by running isolated Neo4j instances via Docker. It handles the full ETL pipeline: downloading raw SQL dumps, parsing them, resolving redirects, generating graph CSVs, and performing a bulk import into the database. A unified FastAPI backend orchestrates queries across these databases dynamically.
+### 2. Neo4j (Topology Engine)
+Each language operates in an isolated Neo4j instance.
+- **Topology Only:** To minimize memory footprint, Neo4j stores only the Wikidata ID (QID) and the link structure.
+- **Similarity Implementation:** Jaccard similarity is implemented via the Neo4j Graph Data Science (GDS) library (`gds.nodeSimilarity.filtered.stream`) for parallel execution. Resource Allocation and Adamic Adar use optimized Cypher queries with a safety valve to handle hub nodes.
 
-## Architecture
+### 3. SQLite (Metadata and Content)
+Article titles, infoboxes, and pre-computed global metrics are stored in language-specific SQLite databases.
+- **Search Implementation:** Utilizes SQLite FTS5 for sub-millisecond keyword and prefix matching.
+- **Metrics Implementation:** Global metrics like PageRank and Louvain communities are pre-computed using GDS and stored in a Key-Value `node_metrics` table for O(1) retrieval at runtime.
 
-The project is structured as a set of services and a core processing pipeline. The backend routes requests to the appropriate language container based on the URL path.
+### 4. JIT Configuration System
+WikiGraph supports all Wikipedia languages through a Just-In-Time (JIT) configuration system. If a language configuration is missing, the system dynamically fetches site information from the Wikimedia API to generate parsing rules. (Enable via `WIKIGRAPH_JIT_ENABLED=true`).
 
-```
-┌─────────────────────────────────────────────────┐
-│            Unified Backend API (FastAPI)         │
-│  (Routes: /api/{lang}/... → neo4j-{lang}:7474)  │
-└─────────────────────────────────────────────────┘
-                    ↓
-┌──────────────┐      ┌──────────────┐
-│ Docker       │      │ Docker       │
-│ Container    │      │ Container    │
-│ neo4j-{lang} │      │ neo4j-{lang} │
-└──────────────┘      └──────────────┘
-```
+---
 
-## Data Model
+## API Usage Guide
 
-The system uses a dual-database architecture optimized for performance and memory efficiency:
+The API is served at `/api/v1`.
 
-### 1. Neo4j (Graph Topology)
-*   **Purpose:** Stores *only* the graph structure (Nodes & Edges) for fast traversal.
-*   **Nodes:** Label `:Concept`
-    *   `qid`: Wikidata ID (e.g., Q36) - **Primary Key**
-    *   `ns`: Namespace (0 for articles)
-    *   *(Note: No Titles or Metadata)*
-*   **Relationships:** Type `:LINKS_TO`
-    *   Directional link between Concepts.
+### 1. Discovery and Metadata
 
-### 2. SQLite (Metadata & Content)
-*   **Purpose:** Stores rich metadata, titles, text, and computed statistics.
-*   **Search:** Includes **FTS5 Virtual Tables** (`articles_fts`) for sub-millisecond keyword matching.
-*   **Tables:**
-    *   `pages`: Page metadata. Columns:
-        *   `page_id`, `title`, `namespace`, `len`
-        *   `out_degree`, `in_degree` (Pre-calculated graph metrics)
-        *   `infobox`: JSON field storing extracted structured data (e.g., birth dates, coordinates).
-    *   `id_mapping`: Maps `page_id` to `qid`.
-    *   `link_targets`: Raw target strings from dumps.
-    *   `category_links`: Category hierarchy (if imported).
-    *   **`articles_fts`**: FTS5 table for title indexing.
+#### Search Entities
+Find QIDs using title-based full-text search.
+- **Endpoint:** `GET /search/{lang}?q={query}`
+- **Example:** `curl "http://localhost:8000/api/v1/search/pl?q=Douglas"`
 
-## Prerequisites
+#### Resolve Entity Details
+Get metadata (title, infobox) and a sample of topological neighbors.
+- **Endpoint:** `GET /entity/{lang}/{qid}`
+- **Example:** `curl "http://localhost:8000/api/v1/entity/pl/Q42"`
 
-*   Docker & Docker Compose
-*   Python 3.10+
-*   Node.js 18+
+#### Cross-Language Comparison
+Compare metadata for a single entity across multiple databases in parallel.
+- **Endpoint:** `GET /compare/{qid}?langs={code1,code2}`
+- **Example:** `curl "http://localhost:8000/api/v1/compare/Q42?langs=pl,de"`
 
-## Setup and Usage
+### 2. Graph Algorithms
 
-### Quick Start
+#### Pathfinding (Shortest Path)
+Find the shortest unweighted path (BFS) between two concepts.
+- **Endpoint:** `GET /graph/path/shortest/{lang}?from_qid={q1}&to_qid={q2}&max_depth=6`
+- **Example:** `curl "http://localhost:8000/api/v1/graph/path/shortest/pl?from_qid=Q42&to_qid=Q64"`
 
-To start the environment for a specific language (e.g., Polish):
+#### Scored Neighbors (Similarity)
+Find entities similar to a target node based on graph topology.
+- **Supported Metrics:** `jaccard`, `resource_allocation`, `adamic_adar`.
+- **Endpoint:** `GET /graph/neighbors/scored/{lang}/{qid}?metric={metric}&limit=20`
+- **Example:** `curl "http://localhost:8000/api/v1/graph/neighbors/scored/pl/Q42?metric=jaccard"`
 
+#### Node Metrics (Global Analytics)
+Retrieve pre-computed metrics for a node.
+- **Options:** Fetch all metrics or filter by a specific key using `?key=`.
+- **Endpoint:** `GET /graph/metrics/{lang}/{qid}?key={key}`
+- **Example (All):** `curl "http://localhost:8000/api/v1/graph/metrics/pl/Q42"`
+- **Example (Single):** `curl "http://localhost:8000/api/v1/graph/metrics/pl/Q42?key=pagerank"`
+
+---
+
+## Ingestion Pipeline
+
+The ETL pipeline consists of an offline processing phase and an online import phase.
+
+### 1. Master Ingestion (Offline)
+The `ingest.py` script automates the retrieval and parsing of Wikipedia dumps:
 ```bash
-./dev.sh start pl
+python3 core/pipeline/ingest.py --lang <lang_code> --download
 ```
+Sequence:
+1. `fetch_sql_dumps.py`: Downloads `page`, `pagelinks`, `redirect`, and `page_props` dumps.
+2. `sqlite_loader.py`: Initializes SQLite schema and loads SQL dumps.
+3. `extract_infoboxes.py`: Parses the XML `pages-articles` dump to extract structured JSON metadata.
+4. `prepare_neo4j_csv.py`: Generates the node and edge CSV files for Neo4j.
 
-To start all configured languages:
-
+### 2. Neo4j Bulk Import (Online)
+Data is loaded into the language container using the Neo4j Admin tool:
 ```bash
-./dev.sh start all
+bash core/pipeline/run_neo4j_import.sh <lang_code>
 ```
 
-To check the status of services:
+---
 
-```bash
-./dev.sh status
-```
+## Operational Guidelines
 
-### Import Pipeline
+### 1. Memory Management
+The system requires careful allocation of physical and virtual memory.
+- **Heap Allocation:** Individual containers are limited to 4GB.
+- **GDS Projections:** Graph projections reside in off-heap memory. 
+- **Cleanup Requirement:** GDS projections must be dropped after use:
+  `CALL gds.graph.drop('similarity-graph')`
 
-To process a new language (e.g., German 'de' or Spanish 'es'), execute the pipeline scripts:
+### 2. Development Control
+Manage the stack using the `dev.sh` controller:
+- `./dev.sh start <lang>`: Initialize a specific database.
+- `./dev.sh stop all`: Terminate services and reclaim memory.
+- `./dev.sh status`: Review active services.
 
-1.  **Download Data:** Fetches the required SQL dumps from Wikimedia.
-    ```bash
-    python3 core/pipeline/fetch_sql_dumps.py <lang_code>
-    ```
+## Graph Theory & Metrics Guide
 
-2.  **Metadata Ingestion:** Parses SQL dumps and populates the SQLite database.
-    ```bash
-    python3 core/loaders/sqlite_loader.py --init --lang <lang_code>
-    ```
+WikiGraph computes several classical graph metrics to help understand the structure of knowledge. Here is what they measure and why they matter.
 
-3.  **Topology Generation:** Extracts the link graph and generates import-ready CSV files.
-    ```bash
-    python3 core/pipeline/prepare_neo4j_csv.py --lang <lang_code>
-    ```
+### 1. Importance (Centrality)
+Who are the "VIPs" of the network?
 
-4.  **Bulk Import:** Loads the CSV files into the Neo4j container.
-    ```bash
-    bash core/pipeline/run_neo4j_import.sh <lang_code>
-    ```
+*   **PageRank:**
+    *   **Concept:** A node is important if other important nodes link to it. It measures long-term, global influence.
+    *   **Analogy:** A voting system where a vote from the President counts more than a vote from a random citizen.
+    *   **Use Case:** Finding the most influential articles in Wikipedia (e.g., "United States", "Biology").
 
-## Project Structure
+*   **HITS Authority:**
+    *   **Concept:** Identifies high-quality information sources ("Authorities") and the lists that point to them ("Hubs").
+    *   **Analogy:** In a library, the "Authorities" are the best books on a topic, and the "Hubs" are the best bibliographies that list those books.
+    *   **Use Case:** distinguishing between a "List of Physicists" (Hub) and "Albert Einstein" (Authority).
 
-*   `core/`: Core ETL logic.
-    *   `pipeline/`: Orchestration scripts (Download, CSV Prep, Import).
-    *   `loaders/`: Data parsers and SQLite loaders.
-    *   `engine/`: Neo4j interaction logic.
-    *   `legacy/`: Archived tools.
-*   `tools/`: Helper scripts.
-    *   `ops/`: Infrastructure management (Docker, Containers).
-    *   `analytics/`: Data analysis and metric computation.
-    *   `archive/`: One-off debug scripts.
-*   `app/`: FastAPI backend service.
-*   `config/`: Configuration for infrastructure and language-specific parsing rules.
-*   `data/`: Directory for raw dumps, SQLite databases, and Neo4j volume data.
-*   `tests/`: Verification suites.
-    *   `unit/`: Isolated module tests.
-    *   `integration/`: End-to-end API and container tests.
+### 2. Similarity (Relatedness)
+How related are two concepts based on their connections?
 
-## Data Validation
+*   **Jaccard Similarity:**
+    *   **Concept:** Measures the overlap between two nodes' neighborhoods relative to their total size.
+    *   **Formula:** `Intersection / Union`.
+    *   **Analogy:** If you and I have 10 friends, and 8 of them are the same people, we are socially similar.
+    *   **Use Case:** Finding broadly related broad topics (e.g., "Physics" and "Chemistry").
 
-The project employs validation steps at key stages of the pipeline:
-*   **Gate 1-3:** Data Ingestion Integrity.
-*   **Gate 4:** Pre-Import Safety Checks.
-*   **Gate 5:** Post-Import Graph Verification (Connectivity, Integrity).
-*   **Gate 5A:** Backend Integration & Health Checks.
-*   **Phase 1 Hardening:** QID Regex Validation, Connection Pooling (SQLAlchemy), Lifecycle Management (Lifespan), and FTS Syntax Robustness.
+*   **Adamic Adar & Resource Allocation:**
+    *   **Concept:** Similar to Jaccard, but gives more weight to **rare** shared neighbors. Sharing a common friend who knows *everyone* (like "United States") is less meaningful than sharing a friend who only knows a few people (like a specific "1995 Jazz Album").
+    *   **Analogy:** Two people who both like "Breathing" aren't special. Two people who both like "Underwater Basket Weaving" definitely have a connection.
+    *   **Use Case:** Finding specific, niche connections between entities.
+
+### 3. Community Detection
+*   **Louvain / Leiden:**
+    *   **Concept:** Groups nodes that are more densely connected to each other than to the rest of the network.
+    *   **Analogy:** Identifying social circles (family, work colleagues, bowling club) within a person's life.
+    *   **Use Case:** Auto-categorizing articles into topics like " WWII Battles," "French Cities," or "Marvel Movies" without reading the text.
+
+---
+
+## Project Roadmap
+
+### Phase 7: AI & Vector Search (Upcoming)
+*   **ChromaDB Integration:** Implement a vector database to store semantic embeddings of Wikipedia articles.
+*   **Embedding Pipeline:** Create a tool to batch-process SQLite articles using Sentence Transformers (e.g., `all-MiniLM-L6-v2`).
+*   **Semantic Search Endpoint:** Extend the search API to support concept-based queries (e.g., "films about time travel") alongside keyword search.
+
+### Phase 8: RAG & Live Data
+*   **Context Retrieval:** Develop an endpoint to generate high-quality context for LLMs by fusing vector search results with 1-hop topological neighbors.
+*   **Live Bridge:** Implement a real-time fetcher for the Wikimedia API to serve up-to-the-minute data for volatile entities.
+
+### Phase 9: Frontend Refactoring & Visualization
+*   **Legacy Restoration:** Refactor the existing Next.js application to restore the 3D-force-graph visualization engine.
+*   **Control Deck:** Port the legacy control interface, including multi-language toggles and algorithm weight sliders (Jaccard vs. PageRank).
+*   **Unified Integration:** Connect the frontend to the live Virtual Bridge API to enable real-time exploration of the global graph.
 
 ## License
-
 GPLv3

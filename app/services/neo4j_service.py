@@ -35,29 +35,43 @@ class Neo4jService:
     async def get_scored_neighbors(self, lang: str, qid: str, limit: int = 20, metric: str = "adamic_adar") -> List[Dict[str, Any]]:
         """
         Computes local similarity metrics for the neighborhood of a QID.
-        Supported metrics: adamic_adar, jaccard.
+        Supported metrics: adamic_adar, jaccard, resource_allocation.
+        OPTIMIZED: Uses safety limits to prevent Cartesian explosions on hubs.
         """
         if metric == "adamic_adar":
-            # undirected AA
+            # undirected AA with Safety Limit
             query = """
-            MATCH (p:Concept {qid: $qid})-[:LINKS]-(common)-[:LINKS]-(neighbor:Concept)
-            WHERE p <> neighbor
+            MATCH (p:Concept {qid: $qid})-[:LINKS_TO]-(common)
+            WITH p, common LIMIT 2000
+            MATCH (common)-[:LINKS_TO]-(neighbor)
+            WHERE neighbor <> p
             WITH neighbor, common
-            RETURN neighbor.qid as qid, sum(1.0 / log(size((common)-[:LINKS]-()) + 1.1)) as score
+            RETURN neighbor.qid as qid, sum(1.0 / log(count{(common)-[:LINKS_TO]-()} + 1.1)) as score
             ORDER BY score DESC
             LIMIT $limit
             """
         elif metric == "jaccard":
-            # undirected Jaccard
+            # GDS-Powered Jaccard (Graph-based, Parallel)
+            # Requires 'similarity-graph' projection in GDS
             query = """
-            MATCH (p:Concept {qid: $qid})-[:LINKS]-(common)-[:LINKS]-(neighbor:Concept)
-            WHERE p <> neighbor
-            WITH p, neighbor, count(common) as intersection
-            MATCH (p)-[:LINKS]-(p_neighbor)
-            WITH p, neighbor, intersection, count(p_neighbor) as p_degree
-            MATCH (neighbor)-[:LINKS]-(n_neighbor)
-            WITH neighbor, intersection, p_degree, count(n_neighbor) as n_degree
-            RETURN neighbor.qid as qid, float(intersection) / (p_degree + n_degree - intersection) as score
+            MATCH (p:Concept {qid: $qid})
+            CALL gds.nodeSimilarity.filtered.stream('similarity-graph', {
+              sourceNodeFilter: p,
+              topK: $limit
+            })
+            YIELD node2, similarity
+            RETURN gds.util.asNode(node2).qid as qid, similarity as score
+            ORDER BY score DESC
+            """
+        elif metric == "resource_allocation":
+            # Resource Allocation (RA) with Safety Limit
+            query = """
+            MATCH (p:Concept {qid: $qid})-[:LINKS_TO]-(common)
+            WITH p, common LIMIT 2000
+            MATCH (common)-[:LINKS_TO]-(neighbor)
+            WHERE neighbor <> p
+            WITH neighbor, common
+            RETURN neighbor.qid as qid, sum(1.0 / count{(common)-[:LINKS_TO]-()}) as score
             ORDER BY score DESC
             LIMIT $limit
             """

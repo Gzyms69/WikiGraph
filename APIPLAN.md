@@ -1,8 +1,7 @@
 # API Expansion Plan: WikiGraph Master Plan
 
-**Status:** Phase 1 COMPLETED (Hardened), Phase 2 IN PROGRESS
-**Architecture:** Minimal Neo4j (Topology/Compute) + Rich SQLite (Metadata/Metrics) + ChromaDB (Vectors)
-**Philosophy:** A modular, high-performance Knowledge Engine offering Graph Theory, AI Search, and RAG capabilities.
+**Status:** Phase 1 (Search/Metadata) COMPLETED, Phase 2 (Core Graph) COMPLETED.
+**Next:** Phase 1 Extension (Vectors) & Phase 3 (RAG).
 
 ---
 
@@ -15,7 +14,6 @@
 *   **Implementation:** 
     - Uses SQLite **FTS5** virtual tables (`articles_fts`) for sub-millisecond prefix and keyword matching.
     - Query logic: `MATCH "{query}*"` (Prefix support).
-    - Robustness: `try/except` wrapper prevents crash on malformed query syntax (e.g. unterminated quotes).
 
 ### 1.2 Vector Search (ChromaDB) - [PENDING]
 *   **Infrastructure:** Integrate `chromadb` (Persistent Client) in `data/chroma`.
@@ -24,59 +22,33 @@
 *   **Endpoint:** `GET /api/v1/search/{lang}?q={query}&type=semantic`
 
 ### 1.3 Infrastructure & Hardening - [DONE]
-*   **Pooling:** Implemented `SQLAlchemy.QueuePool` in `app/services/sqlite_pool.py` for high-concurrency metadata fetching.
-*   **Validation:** Strict QID regex validation (`^Q[0-9]+$`) on all routers.
-*   **Lifecycle:** FastAPI `lifespan` manager handles clean disposal of SQLite and Neo4j connections.
-*   **Health:** `GET /api/v1/health` provides real-time status of 6+ backend persistence layers.
-*   **Stress Tested:** 100% success rate on 500-request mixed load test (Health, Search, Compare, Graph, Path).
+*   **Pooling:** Implemented `SQLAlchemy.QueuePool` in `app/services/sqlite_pool.py`.
+*   **Health:** `GET /api/v1/health` provides real-time status.
+*   **Safety:** GDS Memory Management Protocol enforced.
 
 ### 1.4 The "Rosetta Stone" Comparison - [DONE]
 *   **Endpoint:** `GET /api/v1/compare/{qid}?langs=pl,de,es`
-*   **Implementation:** Parallel `asyncio.gather` fetch of metadata (Titles + Infoboxes) across specified SQLite databases.
+*   **Implementation:** Parallel `asyncio.gather` fetch.
 
 ---
 
-## Phase 2: Core Graph Engine (The "Graph Mathematician") - **IN PROGRESS**
+## Phase 2: Core Graph Engine (The "Graph Mathematician") - **COMPLETED**
 
 **Goal:** Provide deep structural insights using classical Graph Theory algorithms.
-**Constraint:** Neo4j stores **ONLY** topology. All calculated metrics are stored in SQLite or computed on-the-fly.
 
 ### 2.1 Navigation Engine (Pathfinding) - [DONE]
 *   **Endpoint:** `GET /api/v1/graph/path/shortest/{lang}?from_qid={qid}&to_qid={qid}&max_depth=6`
-*   **Implementation:** 
-    - **Algorithm:** Cypher `shortestPath` (BFS) for unweighted link discovery.
-    - **Variable Depth:** Supports researcher-level depth up to **24** steps (Default: 6).
-    - **Safety:** Implemented **Progressive Timeouts** calculated as `max(5.0, depth * 1.5)` seconds. A depth-24 query is granted 36s before being killed.
-    - **Resolution:** Path QIDs are resolved to titles in a single batch SQLite query after traversal.
-*   **Extension (Pending):** `GET /api/v1/graph/path/all/{lang}`
-    - **Algorithm:** `allShortestPaths` or `allSimplePaths` (with strict limit).
-    - **Use Case:** Finding alternative routes or context trails between concepts.
+*   **Implementation:** BFS with Progressive Timeout.
 
-### 2.2 Local Neighborhood Scoring - [PARTIAL]
+### 2.2 Local Neighborhood Scoring - [DONE]
 *   **Endpoint:** `GET /api/v1/graph/neighbors/scored/{lang}/{qid}`
-*   **Implementation:** 
-    - Cypher-based local metrics.
-    - Resolved against SQLite for titles in a single batch call.
-*   **Metrics (Current):** `adamic_adar`, `jaccard`.
-*   **Metrics (Pending):** 
-    - **Resource Allocation (RA):** Better for penalizing super-hubs (e.g., "Year 2000").
-    - **Local Clustering Coefficient (LCC):** Detects "cliques" or tight-knit subgraphs around the node.
+*   **Jaccard:** **[DONE]** Implemented via **Neo4j GDS** (`nodeSimilarity.filtered`). Performance < 3s.
+*   **Resource Allocation:** **[DONE]** Implemented via Optimized Cypher (`LIMIT 2000`). Performance < 10s.
+*   **Adamic Adar:** **[DONE]** Implemented via Optimized Cypher (`LIMIT 2000`).
 
-### 2.3 Global & Advanced Metrics - [DONE (PL)]
-*   **Pipeline:** `tools/analytics/compute_global_metrics.py` (Neo4j GDS -> Stream -> SQLite).
-*   **Storage:** SQLite `node_metrics` table using Generic Schema `(qid, metric_key, value)`.
+### 2.3 Global & Advanced Metrics - [DONE]
 *   **Endpoint:** `GET /api/v1/graph/metrics/{lang}/{qid}`
-*   **Algorithms (Computed):**
-    - **PageRank:** Universal popularity (Stored).
-*   **Algorithms (Pending):**
-    - **Harmonic Centrality:** Robustness measurement (Timed out, needs batch processing).
-
-### 2.4 Community Detection (Clustering) - [DONE (PL)]
-*   **Endpoint:** `GET /api/v1/graph/metrics/{lang}/{qid}`
-*   **Pipeline:** `compute_global_metrics.py`.
-*   **Algorithms (Computed):**
-    - **Louvain:** Fast modularity optimization.
-    - **Leiden:** Superior stability and connectivity.
+*   **Algorithms (Computed - All Langs):** PageRank, HITS Authority, Louvain, Leiden, Triangle Count.
 
 ---
 
@@ -88,9 +60,9 @@
 *   **Endpoint:** `POST /api/v1/rag/context`
 *   **Logic:**
     1.  **Retrieve:** Hybrid Search (FTS + Vector) to find anchor nodes.
-    2.  **Expand:** Traverse Neo4j (1-hop) to find neighbors.
-    3.  **Filter:** Use **HITS Authority** score (from SQLite) to keep only high-quality neighbors.
-    4.  **Format:** Serialize Subgraph (Nodes + Metadata + Relations) to text.
+    2.  **Expand:** Traverse Neo4j (1-hop).
+    3.  **Filter:** Use **HITS Authority** score.
+    4.  **Format:** Serialize Subgraph.
 
 ---
 
@@ -98,4 +70,4 @@
 
 ### 4.1 Wikimedia Bridge
 *   **Endpoint:** `GET /api/v1/live/{lang}/{qid}`
-*   **Implementation:** Async HTTP call to Wikipedia summary API. Non-blocking.
+*   **Implementation:** Async HTTP call to Wikipedia summary API.

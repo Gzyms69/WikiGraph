@@ -20,7 +20,13 @@
 - [x] **Polish (PL):** 1.3M records extracted (79% yield).
 - [x] **Validation:** Data integrity and cross-language overlap verified.
 
-### Phase 5: Unified Backend API
+### Phase 5: Language-Agnostic Architecture (COMPLETED)
+- [x] **LanguageManager:** Modernized with safe accessors and defaults.
+- [x] **Core Pipeline:** Refactored for infinite scalability (parser, loader, extractor).
+- [x] **Infrastructure:** Dynamic container controller with hash-based port allocation.
+- [x] **JIT Resurrection:** Automated configuration for 300+ languages.
+
+### Phase 6: Unified Backend API
 - [ ] **Restoration:** Refactor `MetadataManager` to serve JSON infoboxes.
 - [ ] **Integration:** Update `concept.py` to return rich node data.
 - [ ] **Search:** Implement high-performance title search (FTS5 or Lucene).

@@ -1,12 +1,12 @@
 # WikiGraph Rebuild Plan: Hybrid, Multi-Source Knowledge Graph Lab
 
-##  Progress Tracker (Updated: 2026-01-28)
+##  Progress Tracker (Updated: 2026-02-10)
 *   **Protocol:** Adopted "Fail-Safe" pipeline with strict validation gates.
-*   **Previous Status:** **Phase 4A Complete (Multi-Language Infrastructure).**
-*   **Current Status:** **Phase 5B Complete (Metadata Enrichment).**
-    *   **German:** 62% Yield (1.9M records including Personendaten/Taxobox).
-    *   **Polish:** 79% Yield (1.3M records via suffix patterns).
-    *   **Ready for:** API Restoration (Gate 5B.5.12).
+*   **Previous Status:** **Phase 5B Complete (Metadata Enrichment).**
+*   **Current Status:** **Phase 6 Complete (Core Graph Engine Restoration).**
+    *   **Unified API:** Health, Search, Compare, Path, Metrics endpoints live.
+    *   **Algorithms:** Jaccard (GDS), Resource Allocation (Optimized Cypher), PageRank (Pre-computed).
+    *   **Languages:** PL, DE, ES fully integrated and verified.
 
 ## 1. Comprehensive Legacy Feature Audit (The "Gold Standard")
 
@@ -111,7 +111,7 @@ To explore the graph across languages, we use a **Level-Synchronous Breadth-Firs
 *   [x] Refactor `dev.sh`.
 *   [x] **German Import:** Download, Ingest, Topology, Import.
 
-**Phase 5: Unified Backend API (Current)**
+**Phase 5: Unified Backend API (Complete)**
 *   [x] **Gate 5A.1:** Backend Skeleton & Config.
 *   [x] **Gate 5A.2:** Connection Manager & Degradation.
 *   [x] **Gate 5A.3:** Health Endpoint.
@@ -120,10 +120,16 @@ To explore the graph across languages, we use a **Level-Synchronous Breadth-Firs
 *   [x] **Gate 5B.3:** Cross-Language Traversal (BFS).
 *   [x] **Gate 5B.5:** Metadata Enrichment (Infoboxes for PL/DE).
 
-### Phase 6: API Restoration & Search
-*   [ ] **Gate 6.1:** Refactor API to serve enriched Infobox data (JSON).
-*   [ ] **Gate 6.2:** Keyword Search (Re-implement Lucene/Text index or FTS).
-*   [ ] **Gate 6.3:** Weighted Neighbors (Port Jaccard/AA logic).
+**Phase 6: API Restoration & Search (Complete)**
+*   [x] **Gate 6.1:** Refactor API to serve enriched Infobox data (JSON).
+*   [x] **Gate 6.2:** Keyword Search (Re-implement Lucene/Text index or FTS).
+*   [x] **Gate 6.3:** Weighted Neighbors (Port Jaccard/AA logic).
+
+### Phase 7: AI & Vector Search (Planned)
+*   [ ] **Gate 7.1:** ChromaDB Integration (Vector Store).
+*   [ ] **Gate 7.2:** Embedding Pipeline (Sentence Transformers).
+*   [ ] **Gate 7.3:** Semantic Search Endpoint.
+*   [ ] **Gate 7.4:** RAG Context Generation.
 
 ## 4. Architectural Principle: Minimal Neo4j (Gate 5B.3.9)
 

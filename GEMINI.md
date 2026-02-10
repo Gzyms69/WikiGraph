@@ -29,6 +29,12 @@ WikiGraph is a system designed to process Wikipedia data (dumps) and build a lar
 - NEVER use emojis in documentation, logs, or communications.
 - Always maintain a professional, human-like, and concise tone.
 - Ensure all documentation is clear, accurate, and reflects the language-agnostic nature of the project.
+- **DETAILED REPORTING MANDATE:** After completing a task, providing a shallow summary is forbidden. You MUST provide a comprehensive report including:
+    1.  **Technical Implementation:** Detailed breakdown of code changes, including specific function names, algorithms (e.g., BFS), and logic flows.
+    2.  **Files Modified:** A list of all files touched and the specific nature of the change.
+    3.  **Verification Evidence:** Exact copies of test outputs, log messages, or command results that prove success.
+    4.  **System Impact:** Analysis of how the change affects the broader system (e.g., performance, state, dependencies).
+    5.  **Rationale:** Why specific technical decisions were made (e.g., "Used BFS for unweighted shortest path").
 
 ## Multilingual Wikipedia Strategy (Critical)
 
@@ -66,3 +72,31 @@ Currently, the system uses static YAML files in `config/languages/` (`pl.yaml`, 
 - **HUMAN-IN-THE-LOOP MANDATE:** I must ALWAYS wait for an explicit "GO" before *any* tool use (including read-only tools), writing code, or performing any system actions.
 - **CRITICAL EVALUATION MANDATE:** Every time I receive input from the User or DeepSeek (Coordinator), I must first provide a critical evaluation of the input and a detailed proposed plan for the next steps before requesting a "GO".
 - **CRITICAL PROTOCOL:** I must ALWAYS wait for an explicit "GO" from the user before using ANY tool (including read-only ones) or writing code. I must also provide a critical evaluation and proposed plan after every user/coordinator message.
+
+# CRITICAL TECHNICAL PROTOCOLS (2026-02-10 Update)
+
+## 1. The GDS Mandate (Never Reinvent the Wheel)
+*   **Rule:** For any graph algorithm (Similarity, Centrality, Pathfinding on weights), you MUST first check if a `gds.*` procedure exists.
+*   **Reason:** Raw Cypher implementation of O(N^2) algorithms (like Jaccard/RA on 2-hop paths) causes Cartesian Explosions and crashes the database. GDS is optimized for parallel execution.
+*   **Verification:** Run `CALL gds.list()` to verify availability before coding.
+
+## 2. Memory & Projection Management
+*   **Off-Heap Awareness:** GDS graphs live in **Off-Heap Memory**, distinct from the JVM Heap. Allocating 100% of RAM to Heap+Pagecache will cause OOM when GDS is used.
+*   **Cleanup Mandate:** Any script or test that creates a GDS projection (e.g., `gds.graph.project`) MUST explicitly drop it (`gds.graph.drop`) upon completion or failure (try/finally block).
+*   **Monitoring:** Use `free -h` and `docker stats` to track the *real* cost of graph projections.
+
+## 🛡️ CORE SAFETY & EFFICIENCY DIRECTIVES (Post-Mortem 2026-02-10)
+
+### 1. ANTI-REINVENTION PROTOCOL (GDS/APOC FIRST)
+*   **Constraint:** NEVER write multi-hop pathfinding or set-similarity math in raw Cypher if a GDS procedure exists. 
+*   **Checklist:** Run `CALL gds.list()` and `CALL apoc.help('keyword')` before implementing any logic that feels like "Standard Algorithm X".
+*   **Reason:** Raw Cypher cannot optimize O(N^2) neighborhood set intersections effectively on Wiki-scale density.
+
+### 2. RESOURCE CLEANUP & ORPHAN AUDIT
+*   **Constraint:** Any container or background process started by Gemini must be tracked.
+*   **Protocol:** Before declaring a task "Done," Gemini must check for lingering `while` loops, `monitor.log` writers, or unrelated background containers.
+*   **Memory Hygiene:** GDS projections (`gds.graph.project`) must be dropped (`gds.graph.drop`) when the analysis is finished, unless explicitly requested to stay resident.
+
+### 3. ZERO-NOISE MANDATE
+*   **Constraint:** CLI warnings (e.g., Docker config errors) must be fixed before proceeding with development.
+*   **Reason:** Environmental noise masks real errors (like `defunct connection`) and slows down diagnostic tools.

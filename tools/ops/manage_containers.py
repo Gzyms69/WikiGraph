@@ -11,9 +11,11 @@ sys.path.append(str(project_root))
 
 from config.language_manager import LanguageManager
 
+import os
+
 # --- Configuration ---
-HEAP_SIZE = "4G"
-PAGECACHE_SIZE = "4G"
+HEAP_SIZE = os.environ.get("WIKIGRAPH_HEAP", "4G")
+PAGECACHE_SIZE = os.environ.get("WIKIGRAPH_PAGECACHE", "4G")
 
 def get_ports(lang):
     """
