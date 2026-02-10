@@ -137,3 +137,15 @@ To explore the graph across languages, we use a **Level-Synchronous Breadth-Firs
 
 *   **Neo4j:** Stores ONLY graph topology (Nodes `QID` and Relationships `LINKS_TO`).
 *   **SQLite:** Stores ALL node attributes (`title`, `out_degree`, `in_degree`, `infobox`, `text`).
+
+## Fast Track Sprint: Recruiter-Ready MVP (February 2026)
+
+### Phase 7: The Visualizer (Sprint Week 1)
+*   [ ] **Gate 7.1:** Legacy Frontend Cleanup. Remove complex UI elements and unused components.
+*   [ ] **Gate 7.2:** API Integration. Wire Frontend Search to `/api/v1/search` and Graph View to `/api/v1/entity`.
+*   [ ] **Gate 7.3:** 3D Visualization. Restore `3d-force-graph` rendering for live topological data.
+
+### Phase 8: Cloud AI Integration (Sprint Week 2)
+*   [ ] **Gate 8.1:** Provider Pattern. Implement `AIService` architecture in the backend.
+*   [ ] **Gate 8.2:** Gemini Integration. Implement `GeminiCloudProvider` using Google AI SDK.
+*   [ ] **Gate 8.3:** Insight Feature. Create `/api/v1/ai/insight` and the frontend "AI Summary" card.

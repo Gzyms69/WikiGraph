@@ -71,3 +71,28 @@
 ### 4.1 Wikimedia Bridge
 *   **Endpoint:** `GET /api/v1/live/{lang}/{qid}`
 *   **Implementation:** Async HTTP call to Wikipedia summary API.
+## Phase 1 Extension: The Visualizer (Frontend Integration)
+
+**Goal:** Connect the verified Core Graph Engine to the Next.js Frontend.
+*   **Integration:** Refactor the existing 3D-force-graph components to consume live API data from `/api/v1/entity`.
+*   **UX Pattern:** Search Bar -> 3D Topology Visualization -> Sidebar Metadata Display.
+
+## Phase 7: Hybrid AI Engine (Strategic Pivot)
+
+**Goal:** Deliver generative "AI Insights" immediately using Cloud APIs, while architecting for future Local/Offline support.
+
+### 7.1 AI Service Architecture (Provider Pattern)
+*   **Design:** Implement a modular `AIService` with swappable backends.
+*   **Interface:** `generate_insight(concept_id, related_nodes)`.
+*   **Rationale:** Allows the system to demonstrate SOTA AI capabilities immediately while maintaining a path to full privacy/offline support.
+
+### 7.2 Cloud Implementation (Gemini Flash)
+*   **Provider:** `GeminiCloudProvider`.
+*   **Technology:** `google-generativeai` (Google AI SDK).
+*   **Feature:** Real-time summarization of entity relationships (e.g., "Summarize how Linux is related to Unix and Linus Torvalds").
+*   **Endpoint:** `POST /api/v1/ai/insight`.
+
+### 7.3 Offline Implementation (Future)
+*   **Provider:** `LocalLlamaProvider`.
+*   **Technology:** Ollama (Llama 3) + ChromaDB (Vector Store).
+*   **Status:** Deferred to post-MVP phase.
