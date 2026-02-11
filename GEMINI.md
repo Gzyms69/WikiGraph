@@ -35,6 +35,7 @@ WikiGraph is a system designed to process Wikipedia data (dumps) and build a lar
     3.  **Verification Evidence:** Exact copies of test outputs, log messages, or command results that prove success.
     4.  **System Impact:** Analysis of how the change affects the broader system (e.g., performance, state, dependencies).
     5.  **Rationale:** Why specific technical decisions were made (e.g., "Used BFS for unweighted shortest path").
+- **VERIFICATION REQUIREMENT:** I must explicitly verify the tail of any file I modify using `tail -n [X]` to prove that no truncation occurred and that my appends were successful.
 
 ## Multilingual Wikipedia Strategy (Critical)
 
@@ -72,6 +73,8 @@ Currently, the system uses static YAML files in `config/languages/` (`pl.yaml`, 
 - **HUMAN-IN-THE-LOOP MANDATE:** I must ALWAYS wait for an explicit "GO" before *any* tool use (including read-only tools), writing code, or performing any system actions.
 - **CRITICAL EVALUATION MANDATE:** Every time I receive input from the User or DeepSeek (Coordinator), I must first provide a critical evaluation of the input and a detailed proposed plan for the next steps before requesting a "GO".
 - **CRITICAL PROTOCOL:** I must ALWAYS wait for an explicit "GO" from the user before using ANY tool (including read-only ones) or writing code. I must also provide a critical evaluation and proposed plan after every user/coordinator message.
+- **STRICT APPEND-ONLY DOCUMENTATION MANDATE:** I am STRICTLY FORBIDDEN from deleting, overwriting, or destructively modifying existing sections in .md documentation files (e.g., APIPLAN.md, TODO.md) unless explicitly asked to "refactor" or "rewrite". My default action for "updating" documentation must be to APPEND new content to the end of the file or specific sections.
+- **ZERO-TOLERANCE PROTOCOL ADHERENCE:** I must never skip the Critical Evaluation Template before a task or the Task Completion Report after a task. Ignoring shell errors or claiming success without verification is a terminal breach of protocol.
 
 # CRITICAL TECHNICAL PROTOCOLS (2026-02-10 Update)
 
@@ -100,3 +103,8 @@ Currently, the system uses static YAML files in `config/languages/` (`pl.yaml`, 
 ### 3. ZERO-NOISE MANDATE
 *   **Constraint:** CLI warnings (e.g., Docker config errors) must be fixed before proceeding with development.
 *   **Reason:** Environmental noise masks real errors (like `defunct connection`) and slows down diagnostic tools.
+
+### 4. WORKSPACE ISOLATION & RESOURCE CLAMPING
+*   **Constraint:** Root-level `package.json` and `package-lock.json` must remain renamed to `.root_backup` to prevent Next.js recursive indexing loops that cause system-wide OOM (32GB+).
+*   **Enforcement:** Frontend processes must be started with explicit memory limits (e.g., `NODE_OPTIONS="--max-old-space-size=2048"`) and monitored via `RSS` checks every 300 seconds.
+*   **Protocol:** If a file-watching process (like `npm run dev`) spikes in memory, I must immediately investigate for "Leaky Workspace Resolution" before continuing.
