@@ -1067,25 +1067,33 @@ The project root is now pristine. All active code lives in `core/pipeline` or `t
     *   **Remediation:** Identified and stopped unrelated scraper container (`charming_hawking`).
 *   **Rationale:** Switched to GDS after raw Cypher failed on high-density hub nodes (1.5M+ paths).
 
-## 2026-02-10: MASTER VALIDATION SUCCESS (Gate 6)
+## 2026-02-11: Phase 7 Final - The "Great Memory Crash" & Stabilization
 
-### Test Matrix Results
-| Feature | PL | DE | ES | Status |
-| :--- | :--- | :--- | :--- | :--- |
-| **Health** | ✅ 20ms | ✅ 30ms | ✅ 30ms | **PASS** |
-| **Search (FTS)** | ✅ 10ms | ✅ 120ms | ✅ 70ms | **PASS** |
-| **Entity Metadata** | ✅ 150ms | ✅ 140ms | ✅ 380ms | **PASS** |
-| **Shortest Path** | ✅ 100ms | ✅ 120ms | ✅ 640ms | **PASS** |
-| **Metrics (PR/Tri)** | ✅ <1ms | ✅ <1ms | ✅ <1ms | **PASS** |
-| **Jaccard (GDS)** | ✅ 1.6s | ✅ 3.0s | ✅ 1.6s | **PASS** |
-| **RA (Optimized)** | ✅ 3.1s | ✅ 5.8s | ✅ 6.9s | **PASS** |
-| **AA (Optimized)** | ✅ 2.5s | ✅ 4.1s | ✅ 6.9s | **PASS** |
+**Incident:** System failure (32GB RAM + 8GB Swap exhausted) during frontend startup.
 
-### Stability Metrics
-*   **Memory:** Managed via sequential testing. No OOM.
-*   **Swap:** Stabilized.
-*   **Integrity:** All algorithms returned valid, non-zero data for Q42.
+**Root Cause Analysis (COMPLETED):**
+*   **Root Cause:** **Next.js Workspace Root Inference Failure.**
+    *   The presence of a `package.json` in the project root caused Next.js (in `frontend/`) to detect a monorepo.
+    *   When a module resolution warning occurred (e.g., `tailwindcss` lookup), Next.js recursively scanned the **entire parent directory tree**.
+    *   The tree contains massive datasets (`data/`), virtual environments (`venv/`), and logs, totaling 100GB+.
+    *   Recursion loop exhausted all system RAM within seconds.
 
-### Status Assessment
-*   **Core Graph Engine:** **100% VERIFIED**.
-*   **Next Phase:** Ready for Phase 1.2 (Vector Search) or Phase 3 (RAG).
+**Recovery Actions:**
+1.  **Isolation:** Renamed root `package.json` and `package-lock.json` to `.root_backup`. This broke the monorepo inference and restricted Next.js to the `frontend/` directory.
+2.  **Hardening:** Updated `dev.sh` to enforce `NODE_OPTIONS="--max-old-space-size=2048"`.
+3.  **CORS Fix:** Implemented `CORSMiddleware` in `app/main.py` to allow browser requests to reach the API.
+4.  **Refactoring:** Removed duplicate `getLangColor` definition in `InitializationScreen.tsx`.
+
+**Verification:**
+*   **Stability:** Monitored 300s run showed plateau at **522MB RSS**.
+*   **Liveness:** Port 3000 health-check verified in `dev.sh`.
+*   **Connectivity:** Dynamic language discovery successful.
+
+**Status:** Phase 7 COMPLETED. System stable and performant. Proceeding to Phase 8.
+
+## [2026-02-12] - Phase 8 Initialization & Community Strategy
+- **Action:** Shifted focus to Phase 8 (Hybrid AI Engine) following Phase 7 stabilization.
+- **Strategy:** Drafted a 3-step automation pipeline for "Community Naming" to replace raw cluster IDs with semantic labels using Top-PageRank nodes and Gemini Flash.
+- **Docs:** Updated `APIPLAN.md`, `TODO.md`, and renamed `FRONTAUDIT.md` to `FRONTPLAN.md` with new UX/Architecture roadmaps.
+- **UI:** Defined the "AI Insight" card pattern and the need for global state management (Zustand).
+- **System Health:** Memory usage stable at 11GiB/31GiB (RSS < 600MB for frontend). Workspace isolation maintained.

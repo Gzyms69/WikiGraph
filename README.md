@@ -19,8 +19,42 @@ Article titles, infoboxes, and pre-computed global metrics are stored in languag
 - **Search Implementation:** Utilizes SQLite FTS5 for sub-millisecond keyword and prefix matching.
 - **Metrics Implementation:** Global metrics like PageRank and Louvain communities are pre-computed using GDS and stored in a Key-Value `node_metrics` table for O(1) retrieval at runtime.
 
-### 4. JIT Configuration System
+### 4. 3D Visualization (Next.js)
+A high-performance React-based frontend using `react-force-graph-3d` to visualize the knowledge nebula in real-time. The visualizer is fully language-agnostic and dynamically adapts to available backend data.
+
+### 5. JIT Configuration System
 WikiGraph supports all Wikipedia languages through a Just-In-Time (JIT) configuration system. If a language configuration is missing, the system dynamically fetches site information from the Wikimedia API to generate parsing rules. (Enable via `WIKIGRAPH_JIT_ENABLED=true`).
+
+---
+
+## Getting Started
+
+### 1. Launch Backend & Databases
+Use the development controller to start the stack:
+```bash
+./dev.sh start pl       # Start Polish Neo4j container
+./dev.sh start backend  # Start FastAPI server
+```
+
+### 2. Launch 3D Visualizer (Frontend)
+The frontend is hardened with a 2GB memory clamp to prevent build-system loops.
+```bash
+./dev.sh start frontend
+```
+Open [http://localhost:3000](http://localhost:3000) in your browser.
+
+---
+
+## Using the Visualizer
+
+### 1. Initialization
+Select one or more active "Knowledge Clusters" (detected dynamically from running containers) and click **Synthesize Nebula**.
+
+### 2. Exploration
+- **The Nebula:** Displays the top influential articles based on PageRank.
+- **Search:** Use the search bar to find concepts across active languages.
+- **Expand:** Click any node to fetch and visualize its most relevant topological neighbors.
+- **Physics Control:** Pause/Resume physics or toggle auto-rotation in the control deck.
 
 ---
 
@@ -29,6 +63,16 @@ WikiGraph supports all Wikipedia languages through a Just-In-Time (JIT) configur
 The API is served at `/api/v1`.
 
 ### 1. Discovery and Metadata
+
+#### Discover Active Languages
+Lists languages with active containers and configurations.
+- **Endpoint:** `GET /graph/languages`
+- **Example:** `curl "http://localhost:8000/api/v1/graph/languages"`
+
+#### Global Nebula View
+Returns a sample of high-importance nodes (PageRank) and their links.
+- **Endpoint:** `GET /graph/nebula/{lang}?limit=150`
+- **Example:** `curl "http://localhost:8000/api/v1/graph/nebula/pl"`
 
 #### Search Entities
 Find QIDs using title-based full-text search.
@@ -146,64 +190,24 @@ How related are two concepts based on their connections?
 
 ## Project Roadmap
 
-### Phase 7: AI & Vector Search (Upcoming)
+### Phase 7: The Visualizer (Completed)
+*   **Language-Agnostic Frontend:** Modernized Next.js frontend with high-performance 3D graph explorer.
+*   **Unified Bridge:** Visualization engine now fully powered by verified multi-language Graph Engine (FastAPI).
+*   **Dynamic Discovery:** UI automatically adapts to active language containers.
+
+### Phase 1 Extension: Vector Search (Upcoming)
 *   **ChromaDB Integration:** Implement a vector database to store semantic embeddings of Wikipedia articles.
-*   **Embedding Pipeline:** Create a tool to batch-process SQLite articles using Sentence Transformers (e.g., `all-MiniLM-L6-v2`).
-*   **Semantic Search Endpoint:** Extend the search API to support concept-based queries (e.g., "films about time travel") alongside keyword search.
+*   **Semantic Search:** Extend the search API to support concept-based queries.
 
-### Phase 8: RAG & Live Data
-*   **Context Retrieval:** Develop an endpoint to generate high-quality context for LLMs by fusing vector search results with 1-hop topological neighbors.
-*   **Live Bridge:** Implement a real-time fetcher for the Wikimedia API to serve up-to-the-minute data for volatile entities.
-
-### Phase 9: Frontend Refactoring & Visualization
-*   **Legacy Restoration:** Refactor the existing Next.js application to restore the 3D-force-graph visualization engine.
-*   **Control Deck:** Port the legacy control interface, including multi-language toggles and algorithm weight sliders (Jaccard vs. PageRank).
-*   **Unified Integration:** Connect the frontend to the live Virtual Bridge API to enable real-time exploration of the global graph.
-
-## Graph Theory & Metrics Guide
-
-WikiGraph computes several classical graph metrics to help understand the structure of knowledge. Here is what they measure and why they matter.
-
-### 1. Importance (Centrality)
-Who are the "VIPs" of the network?
-
-*   **PageRank:**
-    *   **Concept:** A node is important if other important nodes link to it. It measures long-term, global influence.
-    *   **Analogy:** A voting system where a vote from the President counts more than a vote from a random citizen.
-    *   **Use Case:** Finding the most influential articles in Wikipedia (e.g., "United States", "Biology").
-
-*   **HITS Authority:**
-    *   **Concept:** Identifies high-quality information sources ("Authorities") and the lists that point to them ("Hubs").
-    *   **Analogy:** In a library, the "Authorities" are the best books on a topic, and the "Hubs" are the best bibliographies that list those books.
-    *   **Use Case:** distinguishing between a "List of Physicists" (Hub) and "Albert Einstein" (Authority).
-
-### 2. Similarity (Relatedness)
-How related are two concepts based on their connections?
-
-*   **Jaccard Similarity:**
-    *   **Concept:** Measures the overlap between two nodes' neighborhoods relative to their total size.
-    *   **Formula:** `Intersection / Union`.
-    *   **Analogy:** If you and I have 10 friends, and 8 of them are the same people, we are socially similar.
-    *   **Use Case:** Finding broadly related broad topics (e.g., "Physics" and "Chemistry").
-
-*   **Adamic Adar & Resource Allocation:**
-    *   **Concept:** Similar to Jaccard, but gives more weight to **rare** shared neighbors. Sharing a common friend who knows *everyone* (like "United States") is less meaningful than sharing a friend who only knows a few people (like a specific "1995 Jazz Album").
-    *   **Analogy:** Two people who both like "Breathing" aren't special. Two people who both like "Underwater Basket Weaving" definitely have a connection.
-    *   **Use Case:** Finding specific, niche connections between entities.
-
-### 3. Community Detection
-*   **Louvain / Leiden:**
-    *   **Concept:** Groups nodes that are more densely connected to each other than to the rest of the network.
-    *   **Analogy:** Identifying social circles (family, work colleagues, bowling club) within a person's life.
-    *   **Use Case:** Auto-categorizing articles into topics like " WWII Battles," "French Cities," or "Marvel Movies" without reading the text.
-
----
+### Phase 8: Hybrid AI Engine (Fast Track)
+*   **Generative Insights:** Real-time relationship summarization using Cloud LLMs.
+*   **Context Retrieval:** Graph-powered context generation for RAG applications.
 
 ## Project Roadmap (Fast Track)
 
-### Phase 7: The Visualizer (In Progress)
+### Phase 7: The Visualizer (Completed)
 *   **Legacy Refactoring:** Modernizing the Next.js frontend to focus on a high-impact 3D graph explorer.
-*   **Live Integration:** Connecting the visualization engine to the verified multi-language Graph Engine.
+*   **Live Integration:** Visualization engine now fully powered by verified multi-language Graph Engine.
 
 ### Phase 8: Hybrid AI Engine
 *   **Provider Pattern:** Implementing a modular AI service capable of switching between Cloud and Local backends.

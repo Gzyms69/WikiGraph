@@ -1,7 +1,7 @@
 # API Expansion Plan: WikiGraph Master Plan
 
-**Status:** Phase 1 (Search/Metadata) COMPLETED, Phase 2 (Core Graph) COMPLETED.
-**Next:** Phase 1 Extension (Vectors) & Phase 3 (RAG).
+**Status:** Phase 1 (Search/Metadata) COMPLETED, Phase 2 (Core Graph) COMPLETED, Phase 7 (Visualizer) COMPLETED.
+**Next:** Phase 1.2 (Live Data Bridge) & Phase 3 (AI Engine).
 
 ---
 
@@ -24,11 +24,10 @@
 ### 1.3 Infrastructure & Hardening - [DONE]
 *   **Pooling:** Implemented `SQLAlchemy.QueuePool` in `app/services/sqlite_pool.py`.
 *   **Health:** `GET /api/v1/health` provides real-time status.
-*   **Safety:** GDS Memory Management Protocol enforced.
+*   **CORS:** Added `CORSMiddleware` to `app/main.py` to allow frontend cross-origin requests.
 
 ### 1.4 The "Rosetta Stone" Comparison - [DONE]
 *   **Endpoint:** `GET /api/v1/compare/{qid}?langs=pl,de,es`
-*   **Implementation:** Parallel `asyncio.gather` fetch.
 
 ---
 
@@ -48,7 +47,7 @@
 
 ### 2.3 Global & Advanced Metrics - [DONE]
 *   **Endpoint:** `GET /api/v1/graph/metrics/{lang}/{qid}`
-*   **Algorithms (Computed - All Langs):** PageRank, HITS Authority, Louvain, Leiden, Triangle Count.
+*   **Algorithms:** PageRank, HITS Authority, Louvain, Leiden, Triangle Count.
 
 ---
 
@@ -71,28 +70,58 @@
 ### 4.1 Wikimedia Bridge
 *   **Endpoint:** `GET /api/v1/live/{lang}/{qid}`
 *   **Implementation:** Async HTTP call to Wikipedia summary API.
-## Phase 1 Extension: The Visualizer (Frontend Integration)
+
+---
+
+## Phase 7: The Visualizer (Frontend Integration) - **COMPLETED**
 
 **Goal:** Connect the verified Core Graph Engine to the Next.js Frontend.
-*   **Integration:** Refactor the existing 3D-force-graph components to consume live API data from `/api/v1/entity`.
-*   **UX Pattern:** Search Bar -> 3D Topology Visualization -> Sidebar Metadata Display.
 
-## Phase 7: Hybrid AI Engine (Strategic Pivot)
+### 7.1 Unified Bridge Endpoints - [DONE]
+*   **Nebula Engine:** `GET /api/v1/graph/nebula/{lang}`. Fuses SQLite (PageRank) + Neo4j (Topology).
+*   **Expansion Bridge:** `GET /api/v1/graph/weighted-neighbors/{lang}/{qid}`. Compatibility wrapper for expansion.
+*   **Discovery Bridge:** `GET /api/v1/graph/languages`. Dynamic discovery of active containers.
+
+### 7.2 Language-Agnostic Frontend - [DONE]
+*   **Technology:** Next.js (App Router), `react-force-graph-3d`.
+*   **Feature:** UI dynamically scales to available backend languages. No hardcoding.
+
+---
+
+## Phase 8: Hybrid AI Engine (Strategic Pivot)
 
 **Goal:** Deliver generative "AI Insights" immediately using Cloud APIs, while architecting for future Local/Offline support.
 
-### 7.1 AI Service Architecture (Provider Pattern)
-*   **Design:** Implement a modular `AIService` with swappable backends.
-*   **Interface:** `generate_insight(concept_id, related_nodes)`.
-*   **Rationale:** Allows the system to demonstrate SOTA AI capabilities immediately while maintaining a path to full privacy/offline support.
-
-### 7.2 Cloud Implementation (Gemini Flash)
+### 8.1 Cloud Implementation (Gemini Flash)
 *   **Provider:** `GeminiCloudProvider`.
 *   **Technology:** `google-generativeai` (Google AI SDK).
-*   **Feature:** Real-time summarization of entity relationships (e.g., "Summarize how Linux is related to Unix and Linus Torvalds").
 *   **Endpoint:** `POST /api/v1/ai/insight`.
 
-### 7.3 Offline Implementation (Future)
-*   **Provider:** `LocalLlamaProvider`.
-*   **Technology:** Ollama (Llama 3) + ChromaDB (Vector Store).
-*   **Status:** Deferred to post-MVP phase.
+---
+
+# API Expansion Plan: WikiGraph Master Plan (MVP Sprint)
+
+**Current Focus:** Delivering Hybrid AI Insights & Stability.
+**De-prioritized:** Vector Search (moved to Phase 4).
+
+## Phase 1 Extension: Live Data Bridge (The Safety Net) - [PRIORITY HIGH]
+* **Endpoint:** Internal fallback within MetadataService.
+* **Logic:** If local DB lacks abstract/infobox, fetch live from Wikipedia REST API (/summary/).
+* **Value:** Prevents "empty card" scenarios during demo.
+
+## Phase 3: Hybrid AI Engine (The "Intelligence Layer") - [ACTIVE]
+**Goal:** Deliver generative insights immediately using Gemini 1.5 Flash.
+
+### 3.1 AI Provider Architecture
+* **Tech:** google-generativeai SDK (native).
+* **Pattern:** Service-based (easy switch between Flash/Pro models).
+
+### 3.2 Insight Endpoint
+* **Endpoint:** POST /api/v1/ai/explain
+* **Input:**
+    { "lang": "pl", "subject_qid": "Q42", "context_nodes": ["Q1", "Q2"] }
+* **Process:**
+    1. Fetch Subject Title & Abstract (SQLite).
+    2. Fetch Context Nodes Titles.
+    3. Construct Prompt: "Explain the relationship between [Subject] and [Context Nodes] in 2 sentences."
+    4. Return streaming or static response.

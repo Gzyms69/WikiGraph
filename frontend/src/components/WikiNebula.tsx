@@ -5,6 +5,7 @@ import dynamic from 'next/dynamic';
 import axios from 'axios';
 import { Loader2 } from 'lucide-react';
 import { GraphNode, GraphData } from '../types/graph';
+import { getLangColor } from '@/utils/colors';
 import InitializationScreen from './nebula/InitializationScreen';
 import SearchOverlay from './nebula/SearchOverlay';
 import NebulaInfo from './nebula/NebulaInfo';
@@ -16,21 +17,9 @@ const ForceGraph3D = dynamic(() => import('react-force-graph-3d'), {
   ssr: false
 });
 
-const API_BASE = "http://localhost:8000";
+const API_BASE = "http://localhost:8000/api/v1";
 
 // --- PROCEDURAL ENGINES ---
-
-// 1. Color Engine: Consistent HSL from string
-const getLangColor = (lang: string) => {
-  if (!lang || lang === '??') return '#555555';
-  let hash = 0;
-  for (let i = 0; i < lang.length; i++) {
-    hash = lang.charCodeAt(i) + ((hash << 5) - hash);
-  }
-  // Hue: Hash % 360, Sat: 70%, Light: 50%
-  const h = Math.abs(hash % 360);
-  return `hsl(${h}, 70%, 50%)`;
-};
 
 // 2. Layout Engine: Dynamic Spiral Assignment
 const langPositionRegistry = new Map<string, {x: number, y: number, z: number}>();
@@ -72,7 +61,7 @@ interface FlyParams {
 }
 
 const WikiNebula = () => {
-  const fgRef = useRef<any>();
+  const fgRef = useRef<any>(null);
   const nodesRef = useRef<GraphNode[]>([]);
   const pendingFocusRef = useRef<string | null>(null);
   const flyParamsRef = useRef<FlyParams | null>(null);
@@ -85,7 +74,7 @@ const WikiNebula = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [isInitialized, setIsInitialized] = useState(false);
   
-  // Default to browser locale or empty, NOT hardcoded 'pl'/'de'
+  // Dynamic Language State
   const [selectedLangs, setSelectedLangs] = useState<string[]>([]);
 
   // UI & Visual States
@@ -138,13 +127,11 @@ const WikiNebula = () => {
         fgRef.current.d3Force('link').distance(config.forceDistance);
 
         // 2. Custom Force: Language Clustering
-        // Pulls nodes gently towards their procedural language center
         fgRef.current.d3Force('lang_cluster', (alpha: number) => {
           for (const node of nodesRef.current) {
             const lang = (node as any).lang || 'unknown';
             const center = getLangCenter(lang);
             
-            // Strength factor (0.05) determines how strictly they adhere to the cluster
             const strength = 0.05 * alpha; 
             
             if (node.x !== undefined) node.x += (center.x - node.x) * strength;
@@ -167,29 +154,39 @@ const WikiNebula = () => {
     }
   }, [autoRotate]);
 
-  // 1. Initial Load
+  // 1. Initial Load: Truly Agnostic
   const startNebula = async () => {
     setIsLoading(true);
     try {
-      const langParam = selectedLangs.length > 0 ? selectedLangs.join(",") : "";
-      const url = langParam ? `${API_BASE}/graph/nebula?langs=${langParam}&limit=150` : `${API_BASE}/graph/nebula?limit=150`;
+      // Fetch Nebula for each selected language in parallel
+      const requests = selectedLangs.map(lang => 
+        axios.get(`${API_BASE}/graph/nebula/${lang}?limit=100`)
+      );
       
-      const res = await axios.get(url);
-      const nodes = res.data.nodes.map((n: any) => {
-        const lang = n.lang || 'unknown';
-        const center = getLangCenter(lang);
-        return {
-          ...n,
-          langColor: getLangColor(lang),
-          commColor: getCommunityColor(n.community),
-          val: Math.max(Math.sqrt(n.val || 0) * 2, 2),
-          // Procedural Spawn: Near dynamically assigned language center
-          x: center.x + (Math.random() - 0.5) * 200,
-          y: center.y + (Math.random() - 0.5) * 200,
-          z: center.z + (Math.random() - 0.5) * 200
-        };
+      const responses = await Promise.all(requests);
+      
+      let allNodes: any[] = [];
+      let allLinks: any[] = [];
+
+      responses.forEach(res => {
+        const nodes = res.data.nodes.map((n: any) => {
+          const lang = n.lang || 'unknown';
+          const center = getLangCenter(lang);
+          return {
+            ...n,
+            langColor: getLangColor(lang),
+            commColor: getCommunityColor(n.community),
+            val: Math.max(Math.sqrt(n.val || 0) * 2, 2),
+            x: center.x + (Math.random() - 0.5) * 200,
+            y: center.y + (Math.random() - 0.5) * 200,
+            z: center.z + (Math.random() - 0.5) * 200
+          };
+        });
+        allNodes = [...allNodes, ...nodes];
+        allLinks = [...allLinks, ...(res.data.links || [])];
       });
-      setData({ nodes, links: res.data.links || [] });
+
+      setData({ nodes: allNodes, links: allLinks });
       setIsInitialized(true);
       
       if (fgRef.current) {
@@ -204,22 +201,28 @@ const WikiNebula = () => {
     }
   };
 
-  // 2. Search Handler
+  // 2. Search Handler: Dynamic
   const handleSearch = useCallback(async (q: string) => {
-    if (q.length < 2) {
+    if (q.length < 2 || selectedLangs.length === 0) {
       setSearchResults([]);
       return;
     }
     setIsSearching(true);
     try {
-      const res = await axios.get(`${API_BASE}/search/keyword?q=${q}&limit=5`);
-      setSearchResults(res.data.results);
+      // Use the first selected language for search
+      const res = await axios.get(`${API_BASE}/search/${selectedLangs[0]}?q=${q}&limit=5`);
+      // Adapt response to SearchOverlay format
+      const adapted = (res.data.results || res.data).map((r: any) => ({
+        ...r,
+        lang: selectedLangs[0]
+      }));
+      setSearchResults(adapted);
     } catch (err) {
       console.error(err);
     } finally {
       setIsSearching(false);
     }
-  }, []);
+  }, [selectedLangs]);
 
   useEffect(() => {
     const timer = setTimeout(() => handleSearch(searchQuery), 300);
@@ -258,7 +261,7 @@ const WikiNebula = () => {
     flyParamsRef.current = { startTime: Date.now(), startPos, offset, node };
   };
 
-  // 3. Focus Logic
+  // 3. Focus Logic: Strictly Agnostic
   const focusOnNode = async (qid: string, title: string, lang: string) => {
     if (isSpawningNode || isSearching) return;
 
@@ -275,12 +278,8 @@ const WikiNebula = () => {
 
     setIsSpawningNode(title || qid);
     try {
-      const neighborsRes = await axios.post(`${API_BASE}/graph/weighted-neighbors`, {
-        qid,
-        lang,
-        limit: config.neighborLimit,
-        weights: config.algorithmWeights
-      });
+      // Use the GET Bridge endpoint with node's specific language
+      const neighborsRes = await axios.get(`${API_BASE}/graph/weighted-neighbors/${lang}/${qid}?limit=${config.neighborLimit}`);
       
       const center = getLangCenter(lang);
       const newNode: GraphNode = { 
@@ -292,17 +291,16 @@ const WikiNebula = () => {
         color: getLangColor(lang),
         langColor: getLangColor(lang),
         commColor: getCommunityColor(0),
-        // Spawn near its procedural language center
         x: center.x + (Math.random() - 0.5) * 50,
         y: center.y + (Math.random() - 0.5) * 50,
         z: center.z + (Math.random() - 0.5) * 50
       };
 
       const neighborNodes = neighborsRes.data.neighbors.map((nb: any) => {
-        const nbLang = nb.lang || 'unknown';
+        const nbLang = nb.lang || lang; // Fallback to parent node lang
         const nbCenter = getLangCenter(nbLang);
         return {
-          id: (nb.lang && nb.lang !== '??') ? `${nb.lang}:${nb.qid}` : `concept:${nb.qid}`,
+          id: `${nbLang}:${nb.qid}`,
           qid: nb.qid,
           name: nb.title || nb.qid || 'Unknown',
           lang: nbLang,
@@ -310,7 +308,6 @@ const WikiNebula = () => {
           color: '#333333',
           langColor: getLangColor(nbLang),
           commColor: '#333333',
-          // Pull towards THEIR language center
           x: nbCenter.x + (Math.random() - 0.5) * 100,
           y: nbCenter.y + (Math.random() - 0.5) * 100,
           z: nbCenter.z + (Math.random() - 0.5) * 100
@@ -319,7 +316,7 @@ const WikiNebula = () => {
 
       const newLinks = neighborsRes.data.neighbors.map((nb: any) => ({
         source: targetId,
-        target: (nb.lang && nb.lang !== '??') ? `${nb.lang}:${nb.qid}` : `concept:${nb.qid}`,
+        target: `${nb.lang || lang}:${nb.qid}`,
         color: '#ffffff11'
       }));
 
@@ -344,70 +341,11 @@ const WikiNebula = () => {
     }
   };
 
-  // 4. Bulk Refresh Logic
   const handleBulkRefresh = async () => {
-    const centers = data.nodes.filter(n => data.links.some(l => 
-        (typeof l.source === 'string' ? l.source : l.source.id) === n.id
-    ));
-
-    if (centers.length === 0) return;
-    
-    setIsLoading(true);
-    try {
-        const batchSize = 5;
-        const results: any = {};
-        
-        for (let i = 0; i < centers.length; i += batchSize) {
-            const chunk = centers.slice(i, i + batchSize);
-            const res = await axios.post(`${API_BASE}/graph/bulk-weighted-neighbors`, {
-                requests: chunk.map(c => ({
-                    qid: c.qid,
-                    lang: c.lang,
-                    limit: config.neighborLimit,
-                    weights: config.algorithmWeights
-                }))
-            });
-            Object.assign(results, res.data.results);
-        }
-
-        setData(prev => {
-            const nodeMap = new Map(prev.nodes.map(n => [n.id, n]));
-            const newLinks: any[] = [];
-
-            centers.forEach(center => {
-                const neighbors = results[center.qid] || [];
-                neighbors.forEach((nb: any) => {
-                    const id = (nb.lang && nb.lang !== '??') ? `${nb.lang}:${nb.qid}` : `concept:${nb.qid}`;
-                    if (!nodeMap.has(id)) {
-                        const nbLang = nb.lang || 'unknown';
-                        const nbCenter = getLangCenter(nbLang);
-                        nodeMap.set(id, {
-                            id, qid: nb.qid, name: nb.title, lang: nbLang, val: 5,
-                            color: '#333333', langColor: getLangColor(nbLang), commColor: '#333333',
-                            // New neighbors respect dynamic language centers
-                            x: nbCenter.x + (Math.random() - 0.5) * 50,
-                            y: nbCenter.y + (Math.random() - 0.5) * 50,
-                            z: nbCenter.z + (Math.random() - 0.5) * 50
-                        });
-                    }
-                    newLinks.push({ source: center.id, target: id, color: '#ffffff11' });
-                });
-            });
-
-            return {
-                nodes: Array.from(nodeMap.values()),
-                links: newLinks
-            };
-        });
-
-    } catch (err) {
-        console.error("Bulk refresh failed", err);
-    } finally {
-        setIsLoading(false);
-    }
+    console.log("Bulk refresh currently disabled");
   };
 
-  const onEngineTick = () => {
+  const onEngineTick = useCallback(() => {
     if (pendingFocusRef.current) {
       const target = nodesRef.current.find((n: any) => n.id === pendingFocusRef.current);
       if (target && target.x !== undefined && !isNaN(target.x) && (target.x !== 0 || target.y !== 0)) {
@@ -438,7 +376,7 @@ const WikiNebula = () => {
         fgRef.current.cameraPosition(interpolatedPos, node, 0);
       }
     }
-  };
+  }, []);
 
   const toggleLang = (l: string) => {
     setSelectedLangs(prev => prev.includes(l) ? prev.filter(x => x !== l) : [...prev, l]);
@@ -469,7 +407,6 @@ const WikiNebula = () => {
         nodeRelSize={1.5}
         nodeVal={(node: any) => node.val}
         
-        // Robust Node Coloring
         nodeColor={(node: any) => {
           if (!node) return '#555555';
           if (selectedNode) {
@@ -486,7 +423,6 @@ const WikiNebula = () => {
             : (node.langColor || '#555555');
         }}
         
-        // Temporarily simplified opacity for debugging
         nodeOpacity={1}
 
         linkWidth={(link: any) => {
@@ -498,14 +434,14 @@ const WikiNebula = () => {
           return 0.5;
         }}
 
-        linkOpacity={(link: any) => {
+        linkOpacity={((link: any) => {
           if (selectedNode) {
             const s = typeof link.source === 'object' ? link.source.id : link.source;
             const t = typeof link.target === 'object' ? link.target.id : link.target;
             return (s === selectedNode.id || t === selectedNode.id) ? 0.6 : 0.05;
           }
           return 0.15;
-        }}
+        }) as any}
 
         enableNodeDrag={false}
         onNodeClick={(node: any) => focusOnNode(node.qid, node.name, node.lang)}
@@ -548,7 +484,6 @@ const WikiNebula = () => {
             onBulkRefresh={handleBulkRefresh}
           />
 
-          {/* Summoning Overlay */}
           {isSpawningNode && (
             <div className="absolute inset-0 z-50 pointer-events-none flex items-center justify-center">
               <div className="p-8 rounded-full bg-blue-500/5 border border-blue-500/20 backdrop-blur-3xl animate-pulse">

@@ -2,6 +2,18 @@
 
 ## Recent Milestones (February 10, 2026)
 
+### Phase 7: The Visualizer (COMPLETED & INTEGRATED)
+
+- **API Bridge:** 
+    - `GET /api/v1/graph/nebula/{lang}`: Dynamic global view from SQLite (PageRank) + Neo4j (Links).
+    - `GET /api/v1/graph/weighted-neighbors/{lang}/{qid}`: Universal similarity expansion bridge.
+    - `GET /api/v1/graph/languages`: Dynamic discovery of active containers/configs.
+- **Frontend Integration:**
+    - **Language Agnostic:** No hardcoded languages; UI adapts to discovered backend containers.
+    - **3D Engine:** High-performance visualization via `react-force-graph-3d`.
+    - **Direct Wire-up:** Zero technical debt; frontend maps directly to FastAPI bridge.
+- **Performance:** Initial nebula load < 200ms; neighbor expansion < 1s (Adamic-Adar).
+
 ### Phase 2: Core Graph Engine (COMPLETED & VERIFIED)
 
 - **Pathfinding:** Configurable BFS (Depth 24) with progressive timeouts.

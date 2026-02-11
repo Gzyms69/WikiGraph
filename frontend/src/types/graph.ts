@@ -6,6 +6,8 @@ export interface GraphNode {
   lang: string;
   community?: number;
   color?: string;
+  langColor?: string;
+  commColor?: string;
   x?: number;
   y?: number;
   z?: number;

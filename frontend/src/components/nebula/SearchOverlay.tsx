@@ -1,5 +1,6 @@
 import React from 'react';
 import { Search, Loader2 } from 'lucide-react';
+import { getLangColor } from '@/utils/colors';
 
 interface SearchOverlayProps {
   searchQuery: string;
@@ -52,9 +53,8 @@ const SearchOverlay: React.FC<SearchOverlayProps> = ({
                 </div>
                 <div className="flex items-center gap-1.5 px-2 py-1 bg-white/5 rounded-lg border border-white/5">
                   <div
-                    className={`w-2 h-2 rounded-sm ${
-                      res.lang === 'pl' ? 'bg-[#dc143c]' : 'bg-[#ffce00]'
-                    }`}
+                    className="w-2 h-2 rounded-sm"
+                    style={{ backgroundColor: getLangColor(res.lang) }}
                   />
                   <span className="text-[9px] text-white/50 font-black uppercase tracking-tighter">
                     {res.lang}

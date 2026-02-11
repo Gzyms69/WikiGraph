@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import { Zap, Loader2, CheckCircle2, ChevronRight } from 'lucide-react';
+import { getLangColor } from '@/utils/colors';
 
 interface InitializationScreenProps {
   isLoading: boolean;
@@ -9,17 +10,7 @@ interface InitializationScreenProps {
   startNebula: () => void;
 }
 
-const API_BASE = "http://localhost:8000";
-
-// Reusing the hash color logic for consistency
-const getLangColor = (lang: string) => {
-  let hash = 0;
-  for (let i = 0; i < lang.length; i++) {
-    hash = lang.charCodeAt(i) + ((hash << 5) - hash);
-  }
-  const h = Math.abs(hash % 360);
-  return `hsl(${h}, 70%, 50%)`;
-};
+const API_BASE = "http://localhost:8000/api/v1";
 
 const InitializationScreen: React.FC<InitializationScreenProps> = ({
   isLoading,

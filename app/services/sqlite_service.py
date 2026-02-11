@@ -179,3 +179,36 @@ class SQLiteService:
             else:
                 comparison[lang] = res
         return comparison
+
+    def _sync_get_top_pagerank(self, db_path: str, limit: int = 150) -> List[Dict[str, Any]]:
+        results = []
+        try:
+            with SQLitePool.get_connection(db_path) as conn:
+                cursor = conn.cursor()
+                query = """
+                    SELECT qid, metric_value 
+                    FROM node_metrics 
+                    WHERE metric_key = 'pagerank' 
+                    ORDER BY metric_value DESC 
+                    LIMIT ?
+                """
+                cursor.execute(query, (limit,))
+                rows = cursor.fetchall()
+                for r in rows:
+                    results.append({"qid": r[0], "val": r[1]})
+        except Exception as e:
+            logger.error(f"Top PageRank fetch failed in {db_path}: {e}")
+        return results
+
+    async def get_top_pagerank(self, lang: str, limit: int = 150) -> List[Dict[str, Any]]:
+        """
+        Async fetch of top nodes by PageRank.
+        """
+        config = LanguageService.get_config(lang)
+        loop = asyncio.get_running_loop()
+        return await loop.run_in_executor(
+            None,
+            self._sync_get_top_pagerank,
+            config.db_path,
+            limit
+        )

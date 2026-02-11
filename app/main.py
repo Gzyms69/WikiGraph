@@ -1,4 +1,5 @@
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from app.core.config import settings
 from app.api.routers import health, concept, concept_by_lang, traverse
@@ -21,6 +22,15 @@ async def lifespan(app: FastAPI):
     Neo4jManager().close()
 
 app = FastAPI(title="WikiGraph API", version="0.1.0", lifespan=lifespan)
+
+# CORS Configuration
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Mount V1 API
 app.include_router(health_v1.router, prefix="/api/v1", tags=["v1", "system"])

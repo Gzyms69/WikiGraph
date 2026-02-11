@@ -114,3 +114,22 @@ class Neo4jService:
             # logger.error(f"Shortest path failed: {e}") # Add logger import if needed or print
             print(f"Shortest path failed: {e}")
             return []
+
+    async def get_links_between(self, lang: str, qids: List[str]) -> List[Dict[str, str]]:
+        """
+        Fetches links that exist between the provided set of QIDs (Closed World).
+        """
+        if not qids: return []
+        
+        query = """
+        MATCH (a:Concept)-[:LINKS_TO]->(b:Concept)
+        WHERE a.qid IN $qids AND b.qid IN $qids
+        RETURN a.qid as source, b.qid as target
+        """
+        
+        try:
+            results = await self.manager.query(lang, query, {"qids": qids})
+            return results if results else []
+        except Exception as e:
+            print(f"Links fetch failed: {e}")
+            return []
