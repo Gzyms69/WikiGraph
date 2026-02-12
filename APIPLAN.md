@@ -139,3 +139,17 @@ All insights are grounded in pre‑computed graph metrics (PageRank, HITS, commu
 - Placeholder UI (skeleton loaders) implemented in Sprint 8.2.
 
 **All AI features are OPT‑IN – no automatic API calls.**
+
+**Expanded Metrics Display (Sprint 8.0 – Amendment):**  
+The Node Card will display **all available node‑level metrics** from `/metrics/{lang}/{qid}`:
+
+| Metric (API field) | Display Label | Notes |
+|-------------------|---------------|-------|
+| `pagerank`        | Global Importance | Raw PageRank value (unbounded, higher = more central). |
+| `triangle_count`  | Local Clustering  | Number of triangles (higher = more tightly clustered neighborhood). |
+| `auth_score`      | Authority (HITS)  | Authority score – cited by many hubs. |
+| `louvain_id`      | Community (Coarse) | Louvain community ID. |
+| `leiden_id`       | Community (Fine)  | Leiden community ID (higher resolution). |
+| `degree` (from `/entity`) | Degree | Number of direct neighbors. |
+
+All metrics include tooltips with definition, meaning, and interpretation.

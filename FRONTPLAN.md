@@ -144,3 +144,15 @@ To resolve the "Cluster 0" anonymity, we will implement a 3-step automation pipe
 ### 📈 Future Enhancement (Post‑Sprint 8.0)
 - Join community names via `ClusterMeta` table (once automated labeling is implemented).
 - Add sparkline visualisations for metric distributions.
+
+### 📊 Full Metrics Implementation (Amendment)
+The Node Card must surface **all available node‑level analytical metrics**:
+
+- **PageRank** – global importance (unbounded, higher = more central).
+- **Triangle Count** – local clustering (absolute triangles, higher = more interconnected).
+- **Authority Score** – HITS authority (cited by hubs).
+- **Louvain ID** – coarse community partition.
+- **Leiden ID** – fine‑grained community partition.
+- **Degree** – raw neighbor count (direct connectivity).
+
+**UI/UX:** Two‑column grid with metric name, value, and info icon (ⓘ) revealing tooltip with plain‑English explanation.

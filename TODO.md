@@ -95,3 +95,5 @@
 The following previously planned AI tasks are **superseded** by the graph‑grounded approach above and should **not** be implemented:
 - `POST /api/v1/ai/insight` (titles‑only endpoint)
 - `generate_node_insight(node_title, neighbor_titles)` (context‑poor function)
+- [ ] **Display all Tier 1 metrics** – ensure `pagerank`, `triangle_count`, `auth_score`, `louvain_id`, `leiden_id`, and `degree` are rendered in NodeDetailsPanel.
+- [ ] **Differentiate Louvain vs Leiden** – show both IDs with appropriate labels (Coarse / Fine).
