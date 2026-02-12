@@ -109,3 +109,38 @@ To resolve the "Cluster 0" anonymity, we will implement a 3-step automation pipe
 
 ### 5. Color Legend
 - Add a dynamic legend to `NebulaInfo` explaining cluster colors.
+
+---
+
+## Node Card Metrics Audit & Redesign (Feb 12, 2026)
+
+### 🔍 Audit Findings (from frontend investigation)
+
+| UI Label     | Data Source  | Reality                                                       |
+|--------------|--------------|---------------------------------------------------------------|
+| `Connectivity` | PageRank     | Scaling Error: Caps at 100% too early; conceptually misnamed. |
+| `Cluster 0`    | API Hardcode | Placeholder: Not linked to real `leiden_id` in SQLite.        |
+| `Importance`   | PageRank     | Correctly used for sizing, but not explicitly labeled.        |
+
+**Root Cause:**  
+- `NodeDetailsPanel.tsx` uses `node.val` (PageRank) and scales it arbitrarily.  
+- `/api/v1/graph/nebula` returns `"community": 0` – the service does not yet join community IDs.  
+- Other metrics exist in `/metrics` endpoint but are not displayed.
+
+### 🛠️ Redesign Plan (Sprint 8.0)
+
+1. **Eliminate fake metrics** – remove the `Connectivity` formula.  
+2. **Display real metrics** – fetch `/metrics/{lang}/{qid}` and render:
+   - PageRank (as `Global Importance`)
+   - Triangle Count (as `Local Clustering`)
+   - Authority Score (as `Authority`)
+   - Louvain/Leiden ID (as `Community`)
+3. **Compute Degree Centrality** – use neighbor count from `/entity/{lang}/{qid}`.  
+4. **Add tooltips** – explain each metric on hover (definition, meaning, and calculation formula).  
+5. **Preserve node sizing** – keep `Math.max(Math.sqrt(n.val || 0) * 2, 2)` (it correctly scales by PageRank).
+
+**This upgrade requires zero backend changes – all data already exposed via existing endpoints.**
+
+### 📈 Future Enhancement (Post‑Sprint 8.0)
+- Join community names via `ClusterMeta` table (once automated labeling is implemented).
+- Add sparkline visualisations for metric distributions.

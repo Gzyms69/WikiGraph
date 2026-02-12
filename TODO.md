@@ -59,3 +59,39 @@
 - [ ] Wikipedia Fallback: Modify MetadataManager in backend.
     - [ ] If sqlite_result is None: Call https://{lang}.wikipedia.org/api/rest_v1/page/summary/{title}.
     - [ ] Return live data formatted as local data.
+
+---
+
+## 🔴 IMMEDIATE: Node Card Real‑Metrics Upgrade (Sprint 8.0)
+- [ ] **Audit current NodeDetailsPanel.tsx metrics display** – confirm which data sources are used.
+- [ ] **Replace `Connectivity`** with actual PageRank value (remove cap, relabel to "Global Importance").
+- [ ] **Replace `Cluster 0`** – fetch real `louvain_id` from `/metrics/{lang}/{qid}` and display it.
+- [ ] **Add missing metrics** from `/metrics` endpoint: Triangle Count, Authority Score.
+- [ ] **Compute and display Degree Centrality** – use neighbor count from `/entity/{lang}/{qid}`.
+- [ ] **Add tooltips** explaining each metric on hover (definition, meaning, and calculation formula).
+- [ ] **Remove fake scaling formula** `Math.min((node.val / 20) * 100, 100)`.
+- [ ] **Test with PL, ES, DE** – verify metrics are fetched correctly.
+
+## 🧠 Sprint 8.1 – Analytical AI Endpoints (Backend)
+- [ ] **Create `app/services/ai_service.py`** with abstract base, GeminiFlash, Mock.
+- [ ] **Add config vars** `AI_PROVIDER`, `GEMINI_API_KEY` to `app/core/config.py`.
+- [ ] **Implement `analyze-node` endpoint** in `app/api/v1/routers/ai.py`.
+- [ ] **Implement `compare-nodes` endpoint**.
+- [ ] **Register router** in `app/api/v1/api.py`.
+- [ ] **Test with mock provider** – verify prompt construction and response.
+- [ ] **Test with Gemini Flash** (if API key available) – verify latency, error handling.
+
+## 🎨 Sprint 8.2 – Frontend AI UI
+- [ ] **Add "Analyze with AI" button** in `NodeDetailsPanel.tsx`.
+- [ ] **Create `AIInsightCard.tsx`** component (loading skeleton, error, insight display).
+- [ ] **Implement `fetchAnalyzeNode`** API call to new endpoint.
+- [ ] **Add two‑node selection state** and "Compare" button.
+- [ ] **Implement `fetchCompareNodes`** API call.
+- [ ] **Integrate both features** with proper error handling and loading states.
+
+---
+
+## 🧊 Deprecated / Superseded Tasks
+The following previously planned AI tasks are **superseded** by the graph‑grounded approach above and should **not** be implemented:
+- `POST /api/v1/ai/insight` (titles‑only endpoint)
+- `generate_node_insight(node_title, neighbor_titles)` (context‑poor function)

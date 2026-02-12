@@ -88,40 +88,54 @@
 
 ---
 
-## Phase 8: Hybrid AI Engine (Strategic Pivot)
+## Phase 8: Graph‑Grounded AI Insights (Revised – Feb 12, 2026)
 
-**Goal:** Deliver generative "AI Insights" immediately using Cloud APIs, while architecting for future Local/Offline support.
+**Strategic Pivot:** AI now narrates *analytical metrics*, not just titles.  
+All insights are grounded in pre‑computed graph metrics (PageRank, HITS, communities, similarity scores).  
+**The previous `/api/v1/ai/insight` plan (titles‑only) is deprecated and superseded by the endpoints below.**
 
-### 8.1 Cloud Implementation (Gemini Flash)
-*   **Provider:** `GeminiCloudProvider`.
-*   **Technology:** `google-generativeai` (Google AI SDK).
-*   **Endpoint:** `POST /api/v1/ai/insight`.
+### 8.0 Frontend Foundation – Node Card Real‑Metrics Upgrade
+**Goal:** Replace misleading placeholders with accurate, meaningful metrics using **existing API endpoints only**.  
+**No new backend code.**
+
+| Current UI Label | Actual Source | New Label | Action |
+|------------------|---------------|-----------|--------|
+| `Connectivity`   | PageRank (capped) | **Global Importance (PageRank)** | Remove cap, display raw PR or percentile. |
+| `Cluster 0`      | Hardcoded placeholder | **Community (Louvain/Leiden)** | Fetch `louvain_id` from `/metrics/{lang}/{qid}`. |
+| `val` (node size)| PageRank | **Importance** | Already correct – keep. |
+| *(missing)*      | Triangle Count | **Local Clustering** | Add to panel. |
+| *(missing)*      | Authority Score | **Authority (HITS)** | Add to panel. |
+| *(missing)*      | Degree Centrality | **Degree** | Compute from neighbor count (available in `/entity`). |
+
+**Implementation:**  
+- Modify `NodeDetailsPanel.tsx` to call `/metrics/{lang}/{qid}` and render all available metrics.  
+- Remove the fake `(node.val / 20) * 100` formula.  
+- Add tooltips explaining each metric (on hover, showing definition, meaning, and calculation formula).
 
 ---
 
-# API Expansion Plan: WikiGraph Master Plan (MVP Sprint)
+### 8.1 Analytical AI Endpoints (Backend)
 
-**Current Focus:** Delivering Hybrid AI Insights & Stability.
-**De-prioritized:** Vector Search (moved to Phase 4).
+**Endpoint A – `POST /api/v1/ai/analyze-node`**  
+*Request:* `{ "lang": str, "qid": str }`  
+*Context gathered:* title, abstract, PageRank, triangle count, authority, community ID, top‑5 similar nodes (Adamic‑Adar/Jaccard), community size & central nodes.  
+*Prompt:* Grounded explanation of the node’s role in the graph.  
 
-## Phase 1 Extension: Live Data Bridge (The Safety Net) - [PRIORITY HIGH]
-* **Endpoint:** Internal fallback within MetadataService.
-* **Logic:** If local DB lacks abstract/infobox, fetch live from Wikipedia REST API (/summary/).
-* **Value:** Prevents "empty card" scenarios during demo.
+**Endpoint B – `POST /api/v1/ai/compare-nodes`**  
+*Request:* `{ "lang": str, "qid1": str, "qid2": str }`  
+*Context gathered:* both nodes’ metrics, their similarity score, community overlap, comparative statements.  
+*Prompt:* Concise, metric‑driven comparison.  
 
-## Phase 3: Hybrid AI Engine (The "Intelligence Layer") - [ACTIVE]
-**Goal:** Deliver generative insights immediately using Gemini 1.5 Flash.
+**Provider Architecture (unchanged):**  
+- Modular `AIService` with `GeminiFlashService` and `MockAIService`.  
+- `google-generativeai` SDK, API key from `.env`.
 
-### 3.1 AI Provider Architecture
-* **Tech:** google-generativeai SDK (native).
-* **Pattern:** Service-based (easy switch between Flash/Pro models).
+---
 
-### 3.2 Insight Endpoint
-* **Endpoint:** POST /api/v1/ai/explain
-* **Input:**
-    { "lang": "pl", "subject_qid": "Q42", "context_nodes": ["Q1", "Q2"] }
-* **Process:**
-    1. Fetch Subject Title & Abstract (SQLite).
-    2. Fetch Context Nodes Titles.
-    3. Construct Prompt: "Explain the relationship between [Subject] and [Context Nodes] in 2 sentences."
-    4. Return streaming or static response.
+### 8.2 Frontend AI Integration
+
+- **NodeDetailsPanel:** Add “Analyze with AI” button → calls `analyze-node`, displays insight in collapsible card.  
+- **Two‑node selection mode:** “Compare with another node” → calls `compare-nodes`.  
+- Placeholder UI (skeleton loaders) implemented in Sprint 8.2.
+
+**All AI features are OPT‑IN – no automatic API calls.**
