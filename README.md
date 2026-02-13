@@ -35,7 +35,7 @@ Follow these steps to set up a production-ready environment from scratch.
 Ensure your system meets these requirements:
 *   **OS:** Linux (Ubuntu 22.04+ recommended) or macOS.
 *   **RAM:** 16GB minimum (32GB+ recommended for English/German graphs).
-*   **Storage:** 100GB+ SSD space.
+*   **Storage:** 20GB+ HDD space.
 *   **Software:**
     *   `python3` (3.10+)
     *   `node` (v18+) & `npm`
