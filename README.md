@@ -129,10 +129,22 @@ Once data is loaded, launch the full stack.
 *   **Backend API:** [http://localhost:8000/docs](http://localhost:8000/docs) - Swagger UI.
 
 ### Managing Services
+The `dev.sh` controller is the command center for the entire stack. It manages Docker containers, the Python backend, the Node.js frontend, and ensures memory safety.
+
+| Command | Target | Description |
+| :--- | :--- | :--- |
+| `start` | `all` | Launches Databases, Backend, and Frontend. |
+| `start` | `pl`, `de`, `es` | Starts the specific Neo4j language container. |
+| `start` | `backend` | Starts the FastAPI server (Port 8000). |
+| `start` | `frontend` | Starts Next.js (Port 3000) with **2GB Memory Limit**. |
+| `stop` | `all` | Stops all services *and* kills any running ingestion pipelines. |
+| `restart` | `backend` | Fast restart for API code changes. |
+| `status` | - | Shows health of Containers, API, and Frontend. |
+
+**Example:**
 ```bash
-./dev.sh stop all       # Stop everything
-./dev.sh restart backend # Restart API only
-./dev.sh status         # Check service health
+./dev.sh restart backend  # Apply Python changes
+./dev.sh status           # Check if everything is running
 ```
 
 ---
