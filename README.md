@@ -27,34 +27,121 @@ WikiGraph supports all Wikipedia languages through a Just-In-Time (JIT) configur
 
 ---
 
-## Getting Started
+## Installation & Setup
 
-### 1. Launch Backend & Databases
-Use the development controller to start the stack:
+Follow these steps to set up a production-ready environment from scratch.
+
+### 1. Prerequisites
+Ensure your system meets these requirements:
+*   **OS:** Linux (Ubuntu 22.04+ recommended) or macOS.
+*   **RAM:** 16GB minimum (32GB+ recommended for English/German graphs).
+*   **Storage:** 100GB+ SSD space.
+*   **Software:**
+    *   `python3` (3.10+)
+    *   `node` (v18+) & `npm`
+    *   `docker` & `docker-compose`
+    *   `curl`, `jq`, `unzip`
+
+### 2. Initial Setup
+Clone the repository and initialize the environment. The setup script will create a Python virtual environment (`venv`), install dependencies, and prepare the frontend.
+
 ```bash
-./dev.sh start pl       # Start Polish Neo4j container
-./dev.sh start backend  # Start FastAPI server
+git clone https://github.com/Gzyms69/WikiGraph.git
+cd WikiGraph
+chmod +x setup_environment.sh dev.sh
+./setup_environment.sh
 ```
 
-### 2. Launch 3D Visualizer (Frontend)
-The frontend is hardened with a 2GB memory clamp to prevent build-system loops.
-```bash
-./dev.sh start frontend
-```
-Open [http://localhost:3000](http://localhost:3000) in your browser.
+### 3. AI Configuration (Optional)
+To enable AI summaries and "Analyze with AI" features:
+1.  Obtain a **Gemini API Key** from Google AI Studio.
+2.  Edit your `.env` file:
+    ```bash
+    nano .env
+    # Set GEMINI_API_KEY=your_key_here
+    ```
 
 ---
 
-## Using the Visualizer
+## The Data Pipeline (Ingestion)
 
-### 1. Initialization
-Select one or more active "Knowledge Clusters" (detected dynamically from running containers) and click **Synthesize Nebula**.
+WikiGraph processes raw Wikipedia SQL/XML dumps. You must run this pipeline to populate your local database. Replace `pl` (Polish) with your desired language code (`en`, `de`, `es`).
 
-### 2. Exploration
-- **The Nebula:** Displays the top influential articles based on PageRank.
-- **Search:** Use the search bar to find concepts across active languages.
-- **Expand:** Click any node to fetch and visualize its most relevant topological neighbors.
-- **Physics Control:** Pause/Resume physics or toggle auto-rotation in the control deck.
+### Phase 1: Download & Parsing (Offline)
+This step downloads raw dumps, loads metadata into SQLite, and generates CSVs for Neo4j.
+
+```bash
+# Activate python environment
+source venv/bin/activate
+
+# Run the Master Ingestor (Downloads dumps automatically)
+python3 core/pipeline/ingest.py --lang pl --download
+```
+*Time Estimate: 10-30 mins (depending on download speed).*
+
+Sequence:
+1. `fetch_sql_dumps.py`: Downloads `page`, `pagelinks`, `redirect`, and `page_props` dumps.
+2. `sqlite_loader.py`: Initializes SQLite schema and loads SQL dumps.
+3. `extract_infoboxes.py`: Parses the XML `pages-articles` dump to extract structured JSON metadata.
+4. `prepare_neo4j_csv.py`: Generates the node and edge CSV files for Neo4j.
+
+### Phase 2: Graph Import (Neo4j)
+Import the generated CSVs into a fresh Neo4j container.
+
+```bash
+./core/pipeline/run_neo4j_import.sh pl
+```
+*Time Estimate: 5-15 mins.*
+
+### Phase 3: Analytical Metrics (The "Intelligence")
+Calculate global graph metrics (PageRank, HITS, Louvain Communities) and store them in SQLite for the dashboard.
+
+```bash
+# 1. Start the Neo4j container
+./dev.sh start pl
+
+# 2. Compute metrics (PageRank, Louvain, Leiden, HITS, Clustering)
+# Note: Ensure you have enough RAM.
+python3 tools/analytics/compute_global_metrics.py --lang pl --algorithms pagerank,hits,louvain,leiden,triangleCount
+```
+*Time Estimate: 20-60 mins (Memory Intensive).*
+
+### Phase 4: Runtime Warmup (Jaccard Similarity)
+To enable the **Jaccard Similarity** feature (which uses GDS in-memory graphs), you must project the graph into memory.
+
+```bash
+python3 tools/ops/warmup_gds.py --lang pl
+```
+*Note: This consumes additional RAM (~2GB for Polish).*
+
+---
+
+## Running the Application
+
+Once data is loaded, launch the full stack.
+
+```bash
+# Start everything (Database + Backend + Frontend)
+./dev.sh start all
+```
+
+*   **Frontend:** [http://localhost:3000](http://localhost:3000) - 3D Graph Explorer.
+*   **Backend API:** [http://localhost:8000/docs](http://localhost:8000/docs) - Swagger UI.
+
+### Managing Services
+```bash
+./dev.sh stop all       # Stop everything
+./dev.sh restart backend # Restart API only
+./dev.sh status         # Check service health
+```
+
+---
+
+## AI Features
+
+*   **Graph-Grounded Insight:** The `/api/v1/ai/analyze` endpoint generates node summaries grounded in mathematical metrics (e.g., "This node is central because its PageRank is X...").
+*   **Resilience:** Automatically falls back to "Mock" insights if the API quota is exceeded.
+*   **Caching:** Frontend caches insights per session to prevent redundant API calls.
 
 ---
 
@@ -109,28 +196,10 @@ Retrieve pre-computed metrics for a node.
 - **Example (All):** `curl "http://localhost:8000/api/v1/graph/metrics/pl/Q42"`
 - **Example (Single):** `curl "http://localhost:8000/api/v1/graph/metrics/pl/Q42?key=pagerank"`
 
----
-
-## Ingestion Pipeline
-
-The ETL pipeline consists of an offline processing phase and an online import phase.
-
-### 1. Master Ingestion (Offline)
-The `ingest.py` script automates the retrieval and parsing of Wikipedia dumps:
-```bash
-python3 core/pipeline/ingest.py --lang <lang_code> --download
-```
-Sequence:
-1. `fetch_sql_dumps.py`: Downloads `page`, `pagelinks`, `redirect`, and `page_props` dumps.
-2. `sqlite_loader.py`: Initializes SQLite schema and loads SQL dumps.
-3. `extract_infoboxes.py`: Parses the XML `pages-articles` dump to extract structured JSON metadata.
-4. `prepare_neo4j_csv.py`: Generates the node and edge CSV files for Neo4j.
-
-### 2. Neo4j Bulk Import (Online)
-Data is loaded into the language container using the Neo4j Admin tool:
-```bash
-bash core/pipeline/run_neo4j_import.sh <lang_code>
-```
+#### AI Analysis
+Generate a structural analysis of a node using Gemini 2.5 Flash.
+- **Endpoint:** `POST /api/v1/ai/analyze/{lang}/{qid}`
+- **Example:** `curl -X POST "http://localhost:8000/api/v1/ai/analyze/pl/Q42"`
 
 ---
 
@@ -148,6 +217,8 @@ Manage the stack using the `dev.sh` controller:
 - `./dev.sh start <lang>`: Initialize a specific database.
 - `./dev.sh stop all`: Terminate services and reclaim memory.
 - `./dev.sh status`: Review active services.
+
+---
 
 ## Graph Theory & Metrics Guide
 
@@ -188,6 +259,17 @@ How related are two concepts based on their connections?
 
 ---
 
+## Troubleshooting
+
+*   **Neo4j Out of Memory (OOM):**
+    *   If the import fails or Neo4j crashes, check your Docker memory settings.
+    *   Edit `config/infrastructure.yaml` to adjust heap sizes (`neo4j_heap: 4G`).
+*   **Frontend "Build Loop":**
+    *   Ensure the root `package.json` is renamed to `.root_backup` (handled automatically) to prevent Next.js from scanning the entire drive.
+    *   `dev.sh` enforces a 2GB memory limit on the frontend process.
+
+---
+
 ## Project Roadmap
 
 ### Phase 7: The Visualizer (Completed)
@@ -195,24 +277,14 @@ How related are two concepts based on their connections?
 *   **Unified Bridge:** Visualization engine now fully powered by verified multi-language Graph Engine (FastAPI).
 *   **Dynamic Discovery:** UI automatically adapts to active language containers.
 
-### Phase 1 Extension: Vector Search (Upcoming)
+### Phase 8: Hybrid AI Engine (Completed)
+*   **Provider Pattern:** Modular AI service capable of switching between Cloud and Local backends.
+*   **Generative Insights:** Real-time relationship summarization using the Gemini 2.5 Flash API.
+*   **Analytic Grounding:** AI narratives are based on rigorous metrics (PageRank, Adamic-Adar) rather than hallucinated context.
+
+### Future: Vector Search (Phase 9)
 *   **ChromaDB Integration:** Implement a vector database to store semantic embeddings of Wikipedia articles.
 *   **Semantic Search:** Extend the search API to support concept-based queries.
-
-### Phase 8: Hybrid AI Engine (Fast Track)
-*   **Generative Insights:** Real-time relationship summarization using Cloud LLMs.
-*   **Context Retrieval:** Graph-powered context generation for RAG applications.
-
-## Project Roadmap (Fast Track)
-
-### Phase 7: The Visualizer (Completed)
-*   **Legacy Refactoring:** Modernizing the Next.js frontend to focus on a high-impact 3D graph explorer.
-*   **Live Integration:** Visualization engine now fully powered by verified multi-language Graph Engine.
-
-### Phase 8: Hybrid AI Engine
-*   **Provider Pattern:** Implementing a modular AI service capable of switching between Cloud and Local backends.
-*   **Generative Insights:** Real-time relationship summarization using the Gemini 1.5 Flash API.
-*   **Offline Support:** Future-proof architecture for local LLM integration (Llama 3 via Ollama).
 
 ## License
 GPLv3
