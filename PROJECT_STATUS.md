@@ -1,6 +1,17 @@
 # WikiGraph: Project Status
 
-## Recent Milestones (February 10, 2026)
+## Recent Milestones (February 12, 2026)
+
+### Phase 8: Hybrid AI Engine (ACTIVE - Sprint 8.2 COMPLETE)
+
+- **AI Structural Intelligence:**
+    - **Endpoint:** `POST /api/v1/ai/analyze/{lang}/{qid}`.
+    - **Intelligence:** Implemented "Grounded Dossier" prompt engineering. The AI now receives PageRank, HITS, Clustering, Communities, and Contextual Similarities (Adamic-Adar/Jaccard) to explain a node's network significance.
+    - **Resilience:** Implemented automatic fallback to "Structural Mock" summaries on 429 (Quota) errors or missing dependencies.
+- **Node Card Real-Metrics Upgrade:**
+    - **UI:** Completely overhauled `NodeDetailsPanel`. Replaced placeholders with real PageRank, Authority, Clustering, and Degree data.
+    - **Context:** Added semantic tooltips for every mathematical metric.
+    - **Persistence:** Implemented session-based caching for AI insights to save API costs and speed up navigation.
 
 ### Phase 7: The Visualizer (COMPLETED & INTEGRATED)
 

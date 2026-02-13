@@ -1081,7 +1081,7 @@ The project root is now pristine. All active code lives in `core/pipeline` or `t
 **Recovery Actions:**
 1.  **Isolation:** Renamed root `package.json` and `package-lock.json` to `.root_backup`. This broke the monorepo inference and restricted Next.js to the `frontend/` directory.
 2.  **Hardening:** Updated `dev.sh` to enforce `NODE_OPTIONS="--max-old-space-size=2048"`.
-3.  **CORS Fix:** Implemented `CORSMiddleware` in `app/main.py` to allow browser requests to reach the API.
+3.  **CORS Fix:** Implemented `CORSMiddleware` in `app/main.py` to allow frontend communication.
 4.  **Refactoring:** Removed duplicate `getLangColor` definition in `InitializationScreen.tsx`.
 
 **Verification:**
@@ -1097,3 +1097,37 @@ The project root is now pristine. All active code lives in `core/pipeline` or `t
 - **Docs:** Updated `APIPLAN.md`, `TODO.md`, and renamed `FRONTAUDIT.md` to `FRONTPLAN.md` with new UX/Architecture roadmaps.
 - **UI:** Defined the "AI Insight" card pattern and the need for global state management (Zustand).
 - **System Health:** Memory usage stable at 11GiB/31GiB (RSS < 600MB for frontend). Workspace isolation maintained.
+
+## Sprint 8.0: Node Card Real-Metrics Upgrade (2026-02-12)
+**Goal:** Replace placeholder metrics in `NodeDetailsPanel` with real analytical data from the backend.
+
+### Changes
+1.  **Frontend Types:** Updated `GraphNode` to include optional `metrics` property and created `NodeMetrics` interface in `types/graph.ts`.
+2.  **NodeDetailsPanel:**
+    - Replaced static props with async data fetching from `/api/v1/graph/metrics/{lang}/{qid}` and `/api/v1/entity/{lang}/{qid}`.
+    - Implemented a 2-column grid layout for metrics: PageRank, Auth Score, Triangle Count, Degree, Louvain ID, Leiden ID.
+    - Added tooltips explaining each metric using `lucide-react` Info icons.
+    - Removed the misleading "Connectivity" bar chart.
+    - Added loading state with `Loader2` spinner.
+
+### Metrics Displayed
+- **Global Importance:** Raw PageRank value.
+- **Authority:** HITS Authority Score (Scientific notation).
+- **Local Clustering:** Triangle Count.
+- **Degree:** Neighbor count (from Entity API).
+- **Community:** Louvain (Coarse) and Leiden (Fine) IDs.
+
+### Verification
+- Frontend builds successfully (Typescript interfaces align).
+- Tooltips provide definitions and formulas on hover.
+- Graceful fallback when metrics are missing.
+
+### Bug Fix: Degree Metric Implementation (2026-02-12)
+- **Problem:** Degree displayed "20" because it fell back to the length of the paginated neighbors list.
+- **Fix (Backend):**
+    - Updated `Concept` model to include `in_degree` and `out_degree`.
+    - Modified `SQLiteService` to fetch `in_degree` and `out_degree` from `pages` table and compute the sum.
+    - Propagated values through `BridgeService`.
+- **Fix (Frontend):**
+    - Updated `NodeDetailsPanel` to use the new `degree`, `in_degree`, and `out_degree` values.
+    - **Hover Breakdown:** Added a detailed breakdown of In-degree and Out-degree within the Degree tooltip.

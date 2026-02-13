@@ -68,7 +68,13 @@ def load_config(path: str = "config/infrastructure.yaml") -> dict:
         # Don't let dynamic discovery crash the whole app if something is wrong
         import logging
         logging.getLogger(__name__).error(f"Dynamic language discovery failed: {e}")
-            
+    
+    # AI Configuration
+    config["ai"] = {
+        "provider": os.getenv("AI_PROVIDER", "mock"),
+        "api_key": os.getenv("GEMINI_API_KEY", "")
+    }
+
     return config
 
 settings = load_config()

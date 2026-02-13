@@ -1,7 +1,7 @@
 # API Expansion Plan: WikiGraph Master Plan
 
-**Status:** Phase 1 (Search/Metadata) COMPLETED, Phase 2 (Core Graph) COMPLETED, Phase 7 (Visualizer) COMPLETED.
-**Next:** Phase 1.2 (Live Data Bridge) & Phase 3 (AI Engine).
+**Status:** Phase 1 (Search/Metadata) COMPLETED, Phase 2 (Core Graph) COMPLETED, Phase 7 (Visualizer) COMPLETED, Phase 8 (AI Engine) COMPLETED.
+**Next:** Phase 1.2 (Live Data Bridge) & Phase 3 (RAG Context).
 
 ---
 
@@ -88,68 +88,34 @@
 
 ---
 
-## Phase 8: Graph‑Grounded AI Insights (Revised – Feb 12, 2026)
+## Phase 8: Graph‑Grounded AI Insights (COMPLETED – Feb 12, 2026)
 
 **Strategic Pivot:** AI now narrates *analytical metrics*, not just titles.  
 All insights are grounded in pre‑computed graph metrics (PageRank, HITS, communities, similarity scores).  
-**The previous `/api/v1/ai/insight` plan (titles‑only) is deprecated and superseded by the endpoints below.**
 
-### 8.0 Frontend Foundation – Node Card Real‑Metrics Upgrade
-**Goal:** Replace misleading placeholders with accurate, meaningful metrics using **existing API endpoints only**.  
-**No new backend code.**
+### 8.0 Node Card Real‑Metrics Upgrade - [DONE]
+**Goal:** Replace misleading placeholders with accurate, meaningful metrics using existing API endpoints.
 
-| Current UI Label | Actual Source | New Label | Action |
-|------------------|---------------|-----------|--------|
-| `Connectivity`   | PageRank (capped) | **Global Importance (PageRank)** | Remove cap, display raw PR or percentile. |
-| `Cluster 0`      | Hardcoded placeholder | **Community (Louvain/Leiden)** | Fetch `louvain_id` from `/metrics/{lang}/{qid}`. |
-| `val` (node size)| PageRank | **Importance** | Already correct – keep. |
-| *(missing)*      | Triangle Count | **Local Clustering** | Add to panel. |
-| *(missing)*      | Authority Score | **Authority (HITS)** | Add to panel. |
-| *(missing)*      | Degree Centrality | **Degree** | Compute from neighbor count (available in `/entity`). |
+| Metric (API field) | Display Label | Status |
+|-------------------|---------------|--------|
+| `pagerank`        | Global Importance | [DONE] |
+| `triangle_count`  | Local Clustering  | [DONE] |
+| `auth_score`      | Authority (HITS)  | [DONE] |
+| `louvain_id`      | Community (Coarse) | [DONE] |
+| `leiden_id`       | Community (Fine)  | [DONE] |
+| `degree`          | Degree (In+Out)   | [DONE] |
 
-**Implementation:**  
-- Modify `NodeDetailsPanel.tsx` to call `/metrics/{lang}/{qid}` and render all available metrics.  
-- Remove the fake `(node.val / 20) * 100` formula.  
-- Add tooltips explaining each metric (on hover, showing definition, meaning, and calculation formula).
+### 8.1 Analytical AI Endpoints (Backend) - [DONE]
 
----
+**Endpoint – `POST /api/v1/ai/analyze/{lang}/{qid}`**  
+*Implementation:* 
+1. **Context Gathering:** Parallel fetch of metadata, analytical metrics, and top similar neighbors (Adamic-Adar + Jaccard).
+2. **Dossier Compilation:** Translates raw metrics into a human-readable structural briefing.
+3. **Grounded Prompting:** Instructs Gemini 2.5 Flash to act as a "Graph Intelligence Analyst" and synthesize math with metadata.
+4. **Resilience:** Automatic fallback to Mock Insight on 429 quota errors.
 
-### 8.1 Analytical AI Endpoints (Backend)
+### 8.2 Frontend AI Integration - [DONE]
 
-**Endpoint A – `POST /api/v1/ai/analyze-node`**  
-*Request:* `{ "lang": str, "qid": str }`  
-*Context gathered:* title, abstract, PageRank, triangle count, authority, community ID, top‑5 similar nodes (Adamic‑Adar/Jaccard), community size & central nodes.  
-*Prompt:* Grounded explanation of the node’s role in the graph.  
-
-**Endpoint B – `POST /api/v1/ai/compare-nodes`**  
-*Request:* `{ "lang": str, "qid1": str, "qid2": str }`  
-*Context gathered:* both nodes’ metrics, their similarity score, community overlap, comparative statements.  
-*Prompt:* Concise, metric‑driven comparison.  
-
-**Provider Architecture (unchanged):**  
-- Modular `AIService` with `GeminiFlashService` and `MockAIService`.  
-- `google-generativeai` SDK, API key from `.env`.
-
----
-
-### 8.2 Frontend AI Integration
-
-- **NodeDetailsPanel:** Add “Analyze with AI” button → calls `analyze-node`, displays insight in collapsible card.  
-- **Two‑node selection mode:** “Compare with another node” → calls `compare-nodes`.  
-- Placeholder UI (skeleton loaders) implemented in Sprint 8.2.
-
-**All AI features are OPT‑IN – no automatic API calls.**
-
-**Expanded Metrics Display (Sprint 8.0 – Amendment):**  
-The Node Card will display **all available node‑level metrics** from `/metrics/{lang}/{qid}`:
-
-| Metric (API field) | Display Label | Notes |
-|-------------------|---------------|-------|
-| `pagerank`        | Global Importance | Raw PageRank value (unbounded, higher = more central). |
-| `triangle_count`  | Local Clustering  | Number of triangles (higher = more tightly clustered neighborhood). |
-| `auth_score`      | Authority (HITS)  | Authority score – cited by many hubs. |
-| `louvain_id`      | Community (Coarse) | Louvain community ID. |
-| `leiden_id`       | Community (Fine)  | Leiden community ID (higher resolution). |
-| `degree` (from `/entity`) | Degree | Number of direct neighbors. |
-
-All metrics include tooltips with definition, meaning, and interpretation.
+- **AIInsightCard:** Collapsible card with interactive trigger ("Analyze with AI").
+- **Session Caching:** Insights are cached in a global Map to prevent redundant API calls when navigating back to a node.
+- **Dynamic Labeling:** Displays the exact model name (e.g., "Gemini 2.5 Flash") dynamically from the API response.

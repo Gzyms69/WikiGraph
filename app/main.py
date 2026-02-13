@@ -1,6 +1,12 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
+from dotenv import load_dotenv
+import os
+
+# Load environment variables from .env file immediately
+load_dotenv()
+
 from app.core.config import settings
 from app.api.routers import health, concept, concept_by_lang, traverse
 from app.api.v1.routers import entity as entity_v1
@@ -10,6 +16,7 @@ from app.api.v1.routers import graph as graph_v1
 from app.api.v1.routers import path as path_v1
 from app.api.v1.routers import metrics as metrics_v1
 from app.api.v1.routers import health as health_v1
+from app.api.v1.routers import ai as ai_v1
 from app.services.sqlite_pool import SQLitePool
 from app.services.neo4j_manager import Neo4jManager
 
@@ -40,6 +47,7 @@ app.include_router(compare_v1.router, prefix="/api/v1/compare", tags=["v1", "com
 app.include_router(graph_v1.router, prefix="/api/v1/graph", tags=["v1", "graph"])
 app.include_router(path_v1.router, prefix="/api/v1/graph/path", tags=["v1", "graph"])
 app.include_router(metrics_v1.router, prefix="/api/v1/graph/metrics", tags=["v1", "analytics"])
+app.include_router(ai_v1.router, prefix="/api/v1/ai", tags=["v1", "ai"])
 
 # Mount Legacy API (v0)
 app.include_router(health.router, prefix="/api")

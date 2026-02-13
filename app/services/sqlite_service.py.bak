@@ -19,14 +19,14 @@ class SQLiteService:
     
     def _sync_get_concept_metadata(self, db_path: str, qid: str) -> Dict[str, Any]:
         """
-        Synchronous fetch of Title + Infobox + Degree.
+        Synchronous fetch of Title + Infobox.
         """
         try:
             with SQLitePool.get_connection(db_path) as conn:
                 cursor = conn.cursor()
                 
                 query = """
-                    SELECT p.title, p.infobox, p.out_degree, p.in_degree
+                    SELECT p.title, p.infobox
                     FROM pages p
                     JOIN id_mapping m ON p.page_id = m.page_id
                     WHERE m.qid = ?
@@ -35,12 +35,10 @@ class SQLiteService:
                 row = cursor.fetchone()
                 
                 if not row:
-                    return {"title": None, "infobox": None, "degree": 0, "in_degree": 0, "out_degree": 0}
+                    return {"title": None, "infobox": None}
                 
                 title = row[0]
                 infobox_raw = row[1]
-                out_d = row[2] or 0
-                in_d = row[3] or 0
                 infobox_parsed = []
                 
                 if infobox_raw:
@@ -49,17 +47,11 @@ class SQLiteService:
                     except json.JSONDecodeError:
                         logger.warning(f"Failed to decode JSON for {qid}")
                 
-                return {
-                    "title": title, 
-                    "infobox": infobox_parsed, 
-                    "degree": out_d + in_d,
-                    "in_degree": in_d,
-                    "out_degree": out_d
-                }
+                return {"title": title, "infobox": infobox_parsed}
             
         except Exception as e:
             logger.error(f"SQLite error for {qid} in {db_path}: {e}")
-            return {"title": None, "infobox": None, "degree": 0, "in_degree": 0, "out_degree": 0}
+            return {"title": None, "infobox": None}
 
     async def get_concept_metadata(self, lang: str, qid: str) -> Dict[str, Any]:
         """
@@ -151,35 +143,10 @@ class SQLiteService:
         try:
             with SQLitePool.get_connection(db_path) as conn:
                 cursor = conn.cursor()
-                
-                # 1. Fetch Key-Value Metrics from node_metrics
-                query_metrics = "SELECT metric_key, metric_value FROM node_metrics WHERE qid = ?"
-                cursor.execute(query_metrics, (qid,))
+                query = "SELECT metric_key, metric_value FROM node_metrics WHERE qid = ?"
+                cursor.execute(query, (qid,))
                 for row in cursor.fetchall():
                     metrics[row[0]] = row[1]
-                
-                # 2. Fetch Degree Counts from pages
-                query_degree = """
-                    SELECT p.out_degree, p.in_degree 
-                    FROM pages p 
-                    JOIN id_mapping m ON p.page_id = m.page_id 
-                    WHERE m.qid = ?
-                """
-                cursor.execute(query_degree, (qid,))
-                degree_row = cursor.fetchone()
-                
-                if degree_row:
-                    out_d = degree_row[0] or 0
-                    in_d = degree_row[1] or 0
-                    metrics['out_degree'] = float(out_d)
-                    metrics['in_degree'] = float(in_d)
-                    metrics['degree'] = float(out_d + in_d)
-                else:
-                    # Fallback if page not found (shouldn't happen if QID exists)
-                    metrics['out_degree'] = 0.0
-                    metrics['in_degree'] = 0.0
-                    metrics['degree'] = 0.0
-
         except Exception as e:
             logger.error(f"Metrics fetch error in {db_path}: {e}")
         return metrics
@@ -212,36 +179,3 @@ class SQLiteService:
             else:
                 comparison[lang] = res
         return comparison
-
-    def _sync_get_top_pagerank(self, db_path: str, limit: int = 150) -> List[Dict[str, Any]]:
-        results = []
-        try:
-            with SQLitePool.get_connection(db_path) as conn:
-                cursor = conn.cursor()
-                query = """
-                    SELECT qid, metric_value 
-                    FROM node_metrics 
-                    WHERE metric_key = 'pagerank' 
-                    ORDER BY metric_value DESC 
-                    LIMIT ?
-                """
-                cursor.execute(query, (limit,))
-                rows = cursor.fetchall()
-                for r in rows:
-                    results.append({"qid": r[0], "val": r[1]})
-        except Exception as e:
-            logger.error(f"Top PageRank fetch failed in {db_path}: {e}")
-        return results
-
-    async def get_top_pagerank(self, lang: str, limit: int = 150) -> List[Dict[str, Any]]:
-        """
-        Async fetch of top nodes by PageRank.
-        """
-        config = LanguageService.get_config(lang)
-        loop = asyncio.get_running_loop()
-        return await loop.run_in_executor(
-            None,
-            self._sync_get_top_pagerank,
-            config.db_path,
-            limit
-        )

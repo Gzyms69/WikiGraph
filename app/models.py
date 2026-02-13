@@ -47,6 +47,11 @@ class ConceptNeighbor(BaseModel):
     qid: str
     title: Optional[str] = None
 
+class ScoredNeighbor(BaseModel):
+    qid: str
+    title: Optional[str] = None
+    score: float
+
 class Concept(BaseModel):
     """
     The Unified Concept Model.
@@ -57,6 +62,17 @@ class Concept(BaseModel):
     title: Optional[str] = None
     infobox: Optional[List[Dict[str, Any]]] = None
     neighbors: Optional[List[ConceptNeighbor]] = None
+    degree: Optional[int] = None
+    in_degree: Optional[int] = None
+    out_degree: Optional[int] = None
+    # Analytical Metrics
+    pagerank: Optional[float] = None
+    auth_score: Optional[float] = None
+    triangle_count: Optional[int] = None
+    louvain_id: Optional[int] = None
+    leiden_id: Optional[int] = None
+    # Contextual Similarities
+    similarities: Optional[Dict[str, List[ScoredNeighbor]]] = None
     
     class Config:
         schema_extra = {

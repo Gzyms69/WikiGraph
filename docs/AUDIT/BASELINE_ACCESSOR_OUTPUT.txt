@@ -1,0 +1,35 @@
+=== WikiGraph LanguageManager Accessor Validation ===
+
+=== Testing Language: de ===
+Loading config...
+Config loaded.
+Testing Text Cleanup (get_text_cleanup_patterns)... OK. Type: list, Value: ['Datei:', 'Bild:', 'File:', 'Image:']
+Testing Redirect Keywords (get_redirect_keywords)... OK. Type: list, Value: ['#WEITERLEITUNG', '#REDIRECT']
+Testing Namespace Prefixes (get_namespace_prefixes)... OK. Type: dict, Value: {'file': ['Datei:', 'Bild:', 'File:', 'Image:'], 'template': ['Vorlage:', 'Template:'], 'category': ['Kategorie:', 'Category:']}
+Testing DB Name (get_dbname)... OK. Type: str, Value: dewiki
+Testing Language Info (get_language_info)... OK. Type: dict, Value: {'code': 'de', 'name': 'Wikipedia', 'local_name': 'Deutsch', 'iso_code': 'de-DE'}
+Testing Processing Config (get_processing_config)... OK. Type: dict, Value: {'enabled': False}
+
+=== Testing Language: pl ===
+Loading config...
+Config loaded.
+Testing Text Cleanup (get_text_cleanup_patterns)... OK. Type: list, Value: ['File:', 'Plik:', 'Grafika:', 'Image:']
+Testing Redirect Keywords (get_redirect_keywords)... OK. Type: list, Value: ['#PATRZ', '#PRZEKIERUJ', '#TAM', '#REDIRECT']
+Testing Namespace Prefixes (get_namespace_prefixes)... OK. Type: dict, Value: {'file': ['File:', 'Plik:', 'Grafika:', 'Image:'], 'template': ['Template:', 'Szablon:'], 'category': ['Category:', 'Kategoria:']}
+Testing DB Name (get_dbname)... OK. Type: str, Value: plwiki
+Testing Language Info (get_language_info)... OK. Type: dict, Value: {'code': 'pl', 'name': 'Wikipedia', 'local_name': 'Polski', 'iso_code': 'pl-PL'}
+Testing Processing Config (get_processing_config)... OK. Type: dict, Value: {'enabled': False}
+
+=== Testing Language: en ===
+Loading config...
+Config loaded.
+Testing Text Cleanup (get_text_cleanup_patterns)... OK. Type: list, Value: ['File:', 'Image:']
+Testing Redirect Keywords (get_redirect_keywords)... OK. Type: list, Value: ['#REDIRECT']
+Testing Namespace Prefixes (get_namespace_prefixes)... OK. Type: dict, Value: {'category': ['Category:'], 'file': ['File:', 'Image:'], 'template': ['Template:'], 'wikipedia': ['Wikipedia:'], 'portal': ['Portal:'], 'help': ['Help:'], 'mediawiki': ['MediaWiki:'], 'user': ['User:'], 'talk': ['Talk:'], 'project': ['Project:']}
+Testing DB Name (get_dbname)... OK. Type: str, Value: enwiki
+Testing Language Info (get_language_info)... OK. Type: dict, Value: {'code': 'en', 'name': 'English', 'local_name': 'English', 'iso_code': 'en-US'}
+Testing Processing Config (get_processing_config)... OK. Type: dict, Value: {'enabled': False}
+
+=== Testing Language: es ===
+Loading config...
+Config Load Failed: FileNotFoundError: Configuration file not found: /home/gzyms/Dev Projects/WikiGraph/config/languages/es.yaml. (JIT Auto-generation is DISABLED. Set WIKIGRAPH_JIT_ENABLED=true to enable.)
