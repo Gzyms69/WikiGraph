@@ -19,10 +19,23 @@ data/
 # Exceptions (if we want to keep structure, but generally ignore all data)
 !data/.gitkeep
 
-# Backups
+# Backups and archives
 *.tar.gz
 *.zip
 *.7z
+
+# File backups (use git instead)
+*.bak
+*.bak_*
+*.backup
+*.root_backup
+
+# Profiling artifacts
+*.prof
+
+# One-off audit outputs
+neo4j_audit.json
+sqlite_audit.json
 
 # Logs
 *.log

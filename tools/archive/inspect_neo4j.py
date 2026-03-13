@@ -1,51 +1,82 @@
-import asyncio
-from app.services.neo4j_manager import Neo4jManager
+from neo4j import GraphDatabase
+import json
 
-async def analyze_neo4j():
-    print(f"\n{'='*60}")
-    print(f"NEO4J ANALYSIS")
-    print(f"{'='*60}")
+def inspect_lang(lang, bolt_port):
+    uri = f"bolt://localhost:{bolt_port}"
+    auth = ("neo4j", "wikigraph")
+    report = {"language": lang, "nodes": {}, "relationships": {}}
     
-    manager = Neo4jManager()
+    try:
+        driver = GraphDatabase.driver(uri, auth=auth)
+        with driver.session() as session:
+            # Node labels and counts
+            res = session.run("CALL db.labels()")
+            labels = [r[0] for r in res]
+            
+            for label in labels:
+                count_res = session.run(f"MATCH (n:{label}) RETURN count(n) as count").single()
+                count = count_res["count"]
+                
+                # Check for properties completeness
+                # Get some sample keys from first 1000 nodes
+                prop_res = session.run(f"MATCH (n:{label}) WITH n LIMIT 1000 UNWIND keys(n) as key RETURN DISTINCT key")
+                props = [r["key"] for r in prop_res]
+                
+                prop_stats = {}
+                for prop in props:
+                    prop_count_res = session.run(f"MATCH (n:{label}) WHERE n.{prop} IS NOT NULL RETURN count(n) as count").single()
+                    prop_stats[prop] = {
+                        "count": prop_count_res["count"],
+                        "completeness_pct": round(prop_count_res["count"] / count * 100, 2) if count > 0 else 0
+                    }
+                
+                report["nodes"][label] = {
+                    "count": count,
+                    "properties": prop_stats
+                }
+            
+            # Relationships
+            res = session.run("CALL db.relationshipTypes()")
+            rel_types = [r[0] for r in res]
+            
+            for rel_type in rel_types:
+                count_res = session.run(f"MATCH ()-[r:{rel_type}]->() RETURN count(r) as count").single()
+                count = count_res["count"]
+                
+                # Relationship properties
+                prop_res = session.run(f"MATCH ()-[r:{rel_type}]->() WITH r LIMIT 1000 UNWIND keys(r) as key RETURN DISTINCT key")
+                props = [r["key"] for r in prop_res]
+                
+                prop_stats = {}
+                for prop in props:
+                    prop_count_res = session.run(f"MATCH ()-[r:{rel_type}]->() WHERE r.{prop} IS NOT NULL RETURN count(r) as count").single()
+                    prop_stats[prop] = {
+                        "count": prop_count_res["count"],
+                        "completeness_pct": round(prop_count_res["count"] / count * 100, 2) if count > 0 else 0
+                    }
+                
+                report["relationships"][rel_type] = {
+                    "count": count,
+                    "properties": prop_stats
+                }
+                
+        driver.close()
+    except Exception as e:
+        report["error"] = str(e)
     
-    for lang in ["pl", "de"]:
-        print(f"\n🌐 LANGUAGE: {lang.upper()}")
-        
-        try:
-            # 1. Total nodes
-            query = "MATCH (n) RETURN count(n) as total_nodes"
-            res = await manager.query(lang, query)
-            if res:
-                print(f"  ├─ Total Nodes: {res[0]['total_nodes']:,}")
-            else:
-                print("  ├─ Total Nodes: 0 (No result)")
-            
-            # 3. Relationship Types
-            query = "CALL db.relationshipTypes() YIELD relationshipType RETURN relationshipType"
-            res = await manager.query(lang, query)
-            if res:
-                rel_types = [row["relationshipType"] for row in res]
-                print(f"  ├─ Relationship Types: {', '.join(rel_types)}")
-            else:
-                print("  ├─ Relationship Types: None")
-            
-            # 4. Total relationships
-            query = "MATCH ()-[r]->() RETURN count(r) as total_rels"
-            res = await manager.query(lang, query)
-            if res:
-                print(f"  ├─ Total Relationships: {res[0]['total_rels']:,}")
-            
-            # 5. Check Properties
-            query = "MATCH (n:Concept) WITH n LIMIT 1 RETURN keys(n) as properties"
-            res = await manager.query(lang, query)
-            if res:
-                print(f"  ├─ Concept Properties: {res[0]['properties']}")
-            
-        except Exception as e:
-            print(f"  ├─ ERROR: {e}")
-            
-    await manager.close()
+    return report
 
 if __name__ == "__main__":
-    loop = asyncio.get_event_loop()
-    loop.run_until_complete(analyze_neo4j())
+    configs = [
+        ("pl", 7687),
+        ("de", 7688),
+        ("es", 7757)
+    ]
+    
+    results = []
+    for lang, port in configs:
+        print(f"Inspecting {lang} on port {port}...")
+        results.append(inspect_lang(lang, port))
+    
+    with open("neo4j_audit.json", "w") as f:
+        json.dump(results, f, indent=2)
