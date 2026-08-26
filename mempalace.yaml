@@ -1,0 +1,60 @@
+wing: wikigraph
+rooms:
+- name: logs
+  description: Files from logs/
+  keywords:
+  - logs
+  - logs
+- name: configuration
+  description: Files from config/
+  keywords:
+  - configuration
+  - config
+- name: documentation
+  description: Files from docs/
+  keywords:
+  - documentation
+  - docs
+- name: app
+  description: Files from app/
+  keywords:
+  - app
+  - app
+- name: scripts
+  description: Files from tools/
+  keywords:
+  - scripts
+  - tools
+- name: frontend
+  description: Files from frontend/
+  keywords:
+  - frontend
+  - frontend
+- name: testing
+  description: Files from tests/
+  keywords:
+  - testing
+  - tests
+- name: data
+  description: Files from data/
+  keywords:
+  - data
+  - data
+- name: core
+  description: Files from core/
+  keywords:
+  - core
+  - core
+- name: design
+  description: Files from design/
+  keywords:
+  - design
+  - design
+- name: backend
+  description: Files from services/
+  keywords:
+  - backend
+  - services
+- name: general
+  description: Files that don't fit other rooms
+  keywords: []

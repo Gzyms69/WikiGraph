@@ -116,6 +116,15 @@ def wait_for_ready(lang):
         time.sleep(2)
     print(" ❌ TIMEOUT")
 
+def stop_all_containers():
+    print("🛑 Stopping all WikiGraph Neo4j containers...")
+    # Find all containers matching the pattern
+    res = subprocess.run(["docker", "ps", "-a", "--format", "{{.Names}}", "--filter", "name=wikigraph-neo4j-"], capture_output=True, text=True)
+    containers = res.stdout.split()
+    for container in containers:
+        print(f"🛑 Stopping {container}...")
+        subprocess.run(["docker", "stop", container], check=False)
+
 def main():
     parser = argparse.ArgumentParser(description="Manage WikiGraph Neo4j Containers")
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -143,6 +152,12 @@ def main():
         return
 
     available_langs = LanguageManager.list_available_languages()
+    
+    # Validate target language
+    if args.lang != 'all' and args.lang not in available_langs:
+        print(f"❌ Error: Invalid language '{args.lang}'. Available languages are: {', '.join(available_langs)}")
+        sys.exit(1)
+
     targets = available_langs if args.lang == 'all' else [args.lang]
 
     if args.command == "start":
@@ -151,13 +166,20 @@ def main():
             wait_for_ready(lang)
 
     elif args.command == "stop":
-        for lang in targets:
-            stop_container(lang)
+        if args.lang == 'all':
+            stop_all_containers()
+        else:
+            for lang in targets:
+                stop_container(lang)
 
     elif args.command == "restart":
+        if args.lang == 'all':
+            stop_all_containers()
+        else:
+            for lang in targets:
+                stop_container(lang)
+        time.sleep(2)
         for lang in targets:
-            stop_container(lang)
-            time.sleep(2)
             start_container(lang)
             wait_for_ready(lang)
 

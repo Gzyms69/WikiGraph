@@ -4,26 +4,66 @@ WikiGraph is a language-agnostic Knowledge Graph engine designed to process Wiki
 
 ## System Architecture
 
-The project employs a hybrid database architecture optimized for large-scale graph operations:
+WikiGraph implements a **Polyglot Persistence (Split-Storage) Architecture** specifically engineered to handle multi-gigabyte Wikipedia graphs without memory saturation. By strictly decoupling topology from textual content, the system ensures optimal RAM utilization across both graph traversals and full-text search.
 
-### 1. Unified Backend API (FastAPI)
-The backend acts as a virtual bridge, federating queries across isolated language containers. It provides a standard REST interface for pathfinding, similarity scoring, and metadata retrieval.
+```mermaid
+flowchart TB
+    subgraph Client["Presentation Layer (Client Browser)"]
+        ThreeJS["Next.js 15 + Three.js (react-force-graph-3d)"]
+        SpiralLayout["Phyllotaxis Spiral Layout (Golden Angle θ = i * 137.5°)"]
+        Spotlight["Spotlight Subgraph Masking & Cubic Camera Easing"]
+        ThreeJS --- SpiralLayout
+        ThreeJS --- Spotlight
+    end
 
-### 2. Neo4j (Topology Engine)
-Each language operates in an isolated Neo4j instance.
-- **Topology Only:** To minimize memory footprint, Neo4j stores only the Wikidata ID (QID) and the link structure.
-- **Similarity Implementation:** Jaccard similarity is implemented via the Neo4j Graph Data Science (GDS) library (`gds.nodeSimilarity.filtered.stream`) for parallel execution. Resource Allocation and Adamic Adar use optimized Cypher queries with a safety valve to handle hub nodes.
+    subgraph Bridge["Application Layer (FastAPI Virtual Bridge)"]
+        Router["Strategic Async Router & Dependency Injection"]
+        Pool["SQLAlchemy QueuePool (check_same_thread=False)"]
+        GDS_Bridge["Neo4j Async Driver Pool (Per-Language Bolt)"]
+        AI_Strat["AIService Strategy (Gemini 2.5 Flash / Mock Provider)"]
+        Router --> Pool
+        Router --> GDS_Bridge
+        Router --> AI_Strat
+    end
 
-### 3. SQLite (Metadata and Content)
-Article titles, infoboxes, and pre-computed global metrics are stored in language-specific SQLite databases.
-- **Search Implementation:** Utilizes SQLite FTS5 for sub-millisecond keyword and prefix matching.
-- **Metrics Implementation:** Global metrics like PageRank and Louvain communities are pre-computed using GDS and stored in a Key-Value `node_metrics` table for O(1) retrieval at runtime.
+    subgraph Storage["Storage Layer (Polyglot Split-Storage)"]
+        subgraph Neo4j_Engine["Neo4j 5 Community + GDS (Topology Only)"]
+            Topology["Graph Topology: (:Concept {qid}) -[:LINKS_TO]-> (:Concept {qid})"]
+            GDS_Projections["In-Memory GDS Projections (similarity-graph)"]
+            SafetyValve["Cartesian Safety Valve (LIMIT 2000 Common Neighbors)"]
+        end
 
-### 4. 3D Visualization (Next.js)
-A high-performance React-based frontend using `react-force-graph-3d` to visualize the knowledge nebula in real-time. The visualizer is fully language-agnostic and dynamically adapts to available backend data.
+        subgraph SQLite_Engine["SQLite 3.37+ (Metadata & Search)"]
+            FTS5["SQLite FTS5 Full-Text Index (articles_fts: title, qid UNINDEXED)"]
+            MetaDB["Relational Metadata: pages, link_targets, id_mapping"]
+            MetricsKV["Materialized Metrics Table (node_metrics Key-Value)"]
+        end
+    end
 
-### 5. JIT Configuration System
-WikiGraph supports all Wikipedia languages through a Just-In-Time (JIT) configuration system. If a language configuration is missing, the system dynamically fetches site information from the Wikimedia API to generate parsing rules. (Enable via `WIKIGRAPH_JIT_ENABLED=true`).
+    Client <-->|RESTful JSON / HTTP| Router
+    GDS_Bridge <-->|Bolt Protocol (7687, 7688...)| Neo4j_Engine
+    Pool <-->|run_in_executor (WAL Mode)| SQLite_Engine
+```
+
+### Architectural Principles
+
+#### 1. Polyglot Split-Storage (Zero String Overhead in Graph)
+*   **Neo4j (Topology Engine):** Stores **exclusively** Wikidata IDs (`qid`) and directed relationships (`LINKS_TO`). Textual titles, descriptions, and infoboxes are strictly prohibited in the graph database. This design keeps JVM heap usage minimal and maximizes pagecache efficiency for topological traversals (BFS, shortest path, PageRank).
+*   **SQLite (Content & Full-Text Search):** Stores article titles, infoboxes (JSON), degree counters, and pre-computed graph metrics. Operates in Write-Ahead Logging (`WAL`) mode with `PRAGMA synchronous = OFF` for bulk operations, and serves full-text queries via an optimized `FTS5` virtual table with `qid UNINDEXED` to minimize indexing overhead.
+
+#### 2. Unified Backend API (FastAPI Virtual Bridge)
+The backend federates queries across isolated per-language containers and local SQLite databases:
+*   **Non-Blocking SQLite I/O:** Synchronous SQLite operations run inside thread pool executors (`run_in_executor`) managed by `SQLAlchemy QueuePool` to prevent event-loop starvation.
+*   **Hub Node Cartesian Protection:** Local similarity queries (Adamic-Adar, Resource Allocation) enforce a strict safety limit (`LIMIT 2000` common neighbors) in Cypher to prevent combinatorial explosions on supernodes (articles with >10,000 links).
+*   **Parallel GDS Execution:** Jaccard similarities run via the Neo4j Graph Data Science (GDS) library (`gds.nodeSimilarity.filtered.stream`) executing multi-threaded C++ operations on in-memory graph projections.
+
+#### 3. Procedural 3D Nebula (Next.js 15 & Three.js)
+*   **Phyllotaxis Spiral Placement:** Language clusters are procedurally placed in 3D space using the Golden Angle formula ($\theta = i \times \pi(3 - \sqrt{5})$), maintaining distinct visual neighborhoods along the vertical axis.
+*   **Custom D3 Physical Forces:** Introduces a custom `lang_cluster` D3 force that pulls nodes toward their respective language coordinate centers while standard charge and link forces resolve local collisions.
+*   **Adaptive Camera Easing:** Node transitions utilize a cubic-ease-out curve ($1 - (1 - t)^3$) with dynamic target offset calculation to avoid camera clipping inside dense clusters.
+
+#### 4. Just-In-Time (JIT) Language Configuration
+WikiGraph supports all Wikimedia languages via dynamic configuration generation. If a requested language configuration is absent in `config/languages/`, the system queries Wikimedia's `siteinfo` API in real time (when `WIKIGRAPH_JIT_ENABLED=true`) to resolve namespace aliases, magic words, and localized infobox prefixes.
 
 ---
 
@@ -31,16 +71,20 @@ WikiGraph supports all Wikipedia languages through a Just-In-Time (JIT) configur
 
 Follow these steps to set up a production-ready environment from scratch.
 
-### 1. Prerequisites
-Ensure your system meets these requirements:
-*   **OS:** Linux (Ubuntu 22.04+ recommended) or macOS.
-*   **RAM:** 16GB minimum (32GB+ recommended for English/German graphs).
-*   **Storage:** 20GB+ HDD space.
-*   **Software:**
+### 1. System Requirements & Capacity Planning
+
+Processing multi-million entity graphs requires dedicated hardware budgeting:
+*   **Operating System:** Linux (Ubuntu 22.04 LTS recommended) or macOS. Native Linux Docker Engine is strongly recommended over Docker Desktop to eliminate the ~17GB VM virtualization and file-sharing overhead (`virtiofsd`).
+*   **Host RAM:**
+    *   **16GB Minimum:** Sufficient for Polish (`pl`) graph (~1.67M nodes, 99.9M edges).
+    *   **32GB Recommended:** Required for German (`de`) graph (~3.1M nodes, 149M edges) or simultaneous multi-language GDS projections.
+    *   **Memory Budget Breakdown:** JVM Heap: 4GB per Neo4j container | Pagecache: 4GB | GDS Off-Heap: 3–4GB per active projection | Next.js Frontend: clamped to 2GB RSS.
+*   **Storage:** 30GB+ available SSD space per language (raw dumps, SQLite WAL databases, Neo4j transaction logs).
+*   **Software Runtimes:**
     *   `python3` (3.10+)
     *   `node` (v18+) & `npm`
-    *   `docker` & `docker-compose`
-    *   `curl`, `jq`, `unzip`
+    *   `docker` (Native Engine) & `docker-compose`
+    *   `aria2c` (recommended for high-speed multi-connection dump downloads)
 
 ### 2. Initial Setup
 Clone the repository and initialize the environment. The setup script will create a Python virtual environment (`venv`), install dependencies, and prepare the frontend.
@@ -63,12 +107,12 @@ To enable AI summaries and "Analyze with AI" features:
 
 ---
 
-## The Data Pipeline (Ingestion)
+## The Data Pipeline (Ingestion & ETL)
 
-WikiGraph processes raw Wikipedia SQL/XML dumps. You must run this pipeline to populate your local database. Replace `pl` (Polish) with your desired language code (`en`, `de`, `es`).
+WikiGraph processes raw Wikipedia SQL/XML dumps through an optimized 4-stage pipeline. Replace `pl` (Polish) with your desired language code (`de`, `es`, `en`).
 
 ### Phase 1: Download & Parsing (Offline)
-This step downloads raw dumps, loads metadata into SQLite, and generates CSVs for Neo4j.
+This step downloads raw Wikimedia dumps, constructs the metadata database in SQLite, and formats the topology into Neo4j-compatible CSVs.
 
 ```bash
 # Activate python environment
@@ -77,42 +121,53 @@ source venv/bin/activate
 # Run the Master Ingestor (Downloads dumps automatically)
 python3 core/pipeline/ingest.py --lang pl --download
 ```
-*Time Estimate: 10-30 mins (depending on download speed).*
+*Time Estimate: 10–30 mins.*
 
-Sequence:
-1. `fetch_sql_dumps.py`: Downloads `page`, `pagelinks`, `redirect`, and `page_props` dumps.
-2. `sqlite_loader.py`: Initializes SQLite schema and loads SQL dumps.
-3. `extract_infoboxes.py`: Parses the XML `pages-articles` dump to extract structured JSON metadata.
-4. `prepare_neo4j_csv.py`: Generates the node and edge CSV files for Neo4j.
+#### Sequence & Internal Mechanics:
+1.  [`fetch_sql_dumps.py`](file:///home/gzyms/Dev%20Projects/WikiGraph/core/pipeline/fetch_sql_dumps.py): Downloads `page`, `pagelinks`, `redirect`, `linktarget`, and `page_props` dumps via `aria2c` (with automatic fallback to `urllib`).
+2.  [`sqlite_loader.py`](file:///home/gzyms/Dev%20Projects/WikiGraph/core/loaders/sqlite_loader.py):
+    *   Initializes SQLite schema with speed pragmas (`journal_mode = MEMORY`, `synchronous = OFF`, `cache_size = 200000`).
+    *   **MediaWiki 1.39+ Schema Adaptation:** Translates modern `pagelinks` (which reference integer `pl_target_id`) via the `link_targets` table with strict `lt_namespace = 0` filtering to prevent link loss.
+    *   Handles encoding drift (`latin1` to `utf-8` normalization) for title strings.
+3.  [`extract_infoboxes.py`](file:///home/gzyms/Dev%20Projects/WikiGraph/core/pipeline/extract_infoboxes.py):
+    *   **Regex Pre-Check:** Executes `quick_has_infobox()` string search, skipping 60–90% of AST parsing overhead on pages without infoboxes.
+    *   **Parallel Extraction:** Distributes XML parsing across a `multiprocessing.Pool`.
+    *   **Atomic Batch Updates:** Writes extracted JSON infoboxes to a temporary staging table (`infobox_temp`) before bulk-updating the `pages` table.
+    *   **Checkpoint/Resume Engine:** Tracks processed titles to allow seamless resumption after interrupts (`SIGINT`).
+4.  [`prepare_neo4j_csv.py`](file:///home/gzyms/Dev%20Projects/WikiGraph/core/pipeline/prepare_neo4j_csv.py):
+    *   Loads in-memory ID mapping (`page_id -> qid`) and target maps.
+    *   Executes two-pass filtering ensuring only article-to-article (`NS=0`) links are written, eliminating hanging edges.
+    *   Applies row count and checksum validation gates prior to disk write.
 
-### Phase 2: Graph Import (Neo4j)
-Import the generated CSVs into a fresh Neo4j container.
+### Phase 2: Graph Import (Neo4j Admin)
+Bulk-imports generated CSVs into a fresh Neo4j database using the high-throughput administrative import tool:
 
 ```bash
 ./core/pipeline/run_neo4j_import.sh pl
 ```
-*Time Estimate: 5-15 mins.*
+*Time Estimate: 5–15 mins.*
 
-### Phase 3: Analytical Metrics (The "Intelligence")
-Calculate global graph metrics (PageRank, HITS, Louvain Communities) and store them in SQLite for the dashboard.
+### Phase 3: Analytical Metrics Pre-computation
+Calculates global graph metrics using Neo4j Graph Data Science (GDS) and materializes them into SQLite for O(1) runtime lookups.
 
 ```bash
 # 1. Start the Neo4j container
 ./dev.sh start pl
 
-# 2. Compute metrics (PageRank, Louvain, Leiden, HITS, Clustering)
-# Note: Ensure you have enough RAM.
+# 2. Compute metrics (PageRank, HITS Authority, Louvain, Leiden, Triangle Count)
 python3 tools/analytics/compute_global_metrics.py --lang pl --algorithms pagerank,hits,louvain,leiden,triangleCount
 ```
-*Time Estimate: 20-60 mins (Memory Intensive).*
+*   **Projection Optimization:** The compute tool groups algorithms by orientation (`NATURAL` for PageRank/HITS, `UNDIRECTED` for Louvain/Leiden/Triangles), minimizing memory allocation overhead.
+*   **Buffered Streaming:** Streams scores from GDS into SQLite `node_metrics` in 50,000-record batches.
+*   **Guaranteed Cleanup:** Projection graphs are explicitly dropped (`gds.graph.drop`) upon completion to reclaim off-heap RAM.
 
 ### Phase 4: Runtime Warmup (Jaccard Similarity)
-To enable the **Jaccard Similarity** feature (which uses GDS in-memory graphs), you must project the graph into memory.
+To enable real-time **Jaccard Similarity** (which evaluates 2-hop graph neighborhood intersections in parallel), project the graph into GDS memory:
 
 ```bash
 python3 tools/ops/warmup_gds.py --lang pl
 ```
-*Note: This consumes additional RAM (~2GB for Polish).*
+*Note: Consumes ~3–4GB off-heap RAM for Polish (99.9M edges).*
 
 ---
 
@@ -129,22 +184,24 @@ Once data is loaded, launch the full stack.
 *   **Backend API:** [http://localhost:8000/docs](http://localhost:8000/docs) - Swagger UI.
 
 ### Managing Services
-The `dev.sh` controller is the command center for the entire stack. It manages Docker containers, the Python backend, the Node.js frontend, and ensures memory safety.
+The `dev.sh` controller is the command center for the entire stack. It manages Docker containers, the Python backend, the Node.js frontend, tracks process groups via `setsid` and `.run/*.pid` files, and ensures strict memory hygiene.
 
 | Command | Target | Description |
 | :--- | :--- | :--- |
-| `start` | `all` | Launches Databases, Backend, and Frontend. |
-| `start` | `pl`, `de`, `es` | Starts the specific Neo4j language container. |
-| `start` | `backend` | Starts the FastAPI server (Port 8000). |
-| `start` | `frontend` | Starts Next.js (Port 3000) with **2GB Memory Limit**. |
-| `stop` | `all` | Stops all services *and* kills any running ingestion pipelines. |
-| `restart` | `backend` | Fast restart for API code changes. |
-| `status` | - | Shows health of Containers, API, and Frontend. |
+| `start` | `all` | Launches Databases, Backend, and Frontend in sequence. |
+| `start` | `pl`, `de`, `es` | Starts the specific Neo4j language container and waits for Bolt liveness. |
+| `start` | `backend` | Starts the FastAPI server (Port 8000) with healthcheck verification. |
+| `start` | `frontend` | Starts Next.js (Port 3000) clamped to **2GB Memory Limit**. |
+| `stop` | `all` | Terminates all services via PID process groups and kills running ingestion pipelines. |
+| `restart` | `backend` | Fast graceful restart for API code changes. |
+| `status` | - | Shows health and PID status of Containers, API, and Frontend. |
+| `links` | - | Displays active URLs and dynamically mapped HTTP ports for all services. |
 
 **Example:**
 ```bash
 ./dev.sh restart backend  # Apply Python changes
-./dev.sh status           # Check if everything is running
+./dev.sh links            # Show active endpoints and Neo4j web consoles
+./dev.sh status           # Verify process health
 ```
 
 ---
@@ -215,20 +272,23 @@ Generate a structural analysis of a node using Gemini 2.5 Flash.
 
 ---
 
-## Operational Guidelines
+## Operational Guidelines & Memory Safety
 
-### 1. Memory Management
-The system requires careful allocation of physical and virtual memory.
-- **Heap Allocation:** Individual containers are limited to 4GB.
-- **GDS Projections:** Graph projections reside in off-heap memory. 
-- **Cleanup Requirement:** GDS projections must be dropped after use:
-  `CALL gds.graph.drop('similarity-graph')`
+### 1. Memory Hygiene & Resource Clamping
+*   **Workspace Isolation (Monorepo Guard):** Root-level `package.json` and `package-lock.json` are renamed to `.root_backup`. This prevents Next.js from detecting a monorepo root and recursively scanning 100GB+ parent directories (`data/`, `venv/`, `logs/`), which historically caused 32GB RAM + 8GB Swap system crashes.
+*   **Frontend Heap Clamping:** `dev.sh` explicitly starts the frontend with `NODE_OPTIONS="--max-old-space-size=2048"`, ensuring Next.js never exceeds 2GB RSS.
+*   **Neo4j JVM vs Off-Heap GDS:** Container heap is restricted to 4GB (`config/infrastructure.yaml`). In-memory GDS projections reside in off-heap memory and must be explicitly dropped when analysis completes:
+    ```cypher
+    CALL gds.graph.drop('similarity-graph', false)
+    ```
 
-### 2. Development Control
-Manage the stack using the `dev.sh` controller:
-- `./dev.sh start <lang>`: Initialize a specific database.
-- `./dev.sh stop all`: Terminate services and reclaim memory.
-- `./dev.sh status`: Review active services.
+### 2. Process Group Supervision
+*   **PID Tracking:** Backend and frontend PIDs are recorded in `.run/backend.pid` and `.run/frontend.pid`.
+*   **Process Groups:** Services are spawned in independent sessions (`setsid`). Stopping a service executes `kill -TERM -$pid`, guaranteeing that all child workers and build watchers are terminated cleanly without orphan leaks.
+
+### 3. Cartesian Safety Valve on Hub Nodes
+*   Standard Cypher queries computing 2-hop intersections on articles with tens of thousands of links ("United States", "Poland") suffer from combinatorial explosion ($O(N^2)$).
+*   WikiGraph injects a strict `WITH p, common LIMIT 2000` clause into Adamic-Adar and Resource Allocation queries, bounding worst-case traversal latency under 3–5 seconds.
 
 ---
 

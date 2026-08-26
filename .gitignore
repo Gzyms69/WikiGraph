@@ -55,9 +55,10 @@ docker/*.tar
 .DS_Store
 Thumbs.db
 
-# Temporary files
+# Temporary & runtime files
 *.tmp
 *.temp
+.run/
 
 # Environment variables
 .env
