@@ -8,41 +8,36 @@ WikiGraph implements a **Polyglot Persistence (Split-Storage) Architecture** spe
 
 ```mermaid
 flowchart TB
-    subgraph Client["Presentation Layer (Client Browser)"]
-        ThreeJS["Next.js 15 + Three.js (react-force-graph-3d)"]
-        SpiralLayout["Phyllotaxis Spiral Layout (Golden Angle θ = i * 137.5°)"]
-        Spotlight["Spotlight Subgraph Masking & Cubic Camera Easing"]
-        ThreeJS --- SpiralLayout
-        ThreeJS --- Spotlight
+    subgraph Ingestion["1. Potok Big Data & Adaptacja Schematu (55 GB Surowych Baz)"]
+        Dumps["Zrzuty Wikipedii (SQL/XML via aria2c)"]
+        SchemaFix["MediaWiki 1.39+ Schema Fix (link_targets lt_namespace=0)"]
+        ASTParser["Parser mwparserfromhell (Regex Pre-check quick_has_infobox -75% Czasu)"]
+        AdminImport["neo4j-admin database import full (149M Relacji w <15 min)"]
     end
 
-    subgraph Bridge["Application Layer (FastAPI Virtual Bridge)"]
-        Router["Strategic Async Router & Dependency Injection"]
-        Pool["SQLAlchemy QueuePool (check_same_thread=False)"]
-        GDS_Bridge["Neo4j Async Driver Pool (Per-Language Bolt)"]
-        AI_Strat["AIService Strategy (Gemini 2.5 Flash / Mock Provider)"]
-        Router --> Pool
-        Router --> GDS_Bridge
-        Router --> AI_Strat
+    subgraph Split_Storage["2. Architektura Split-Storage (-95% RAM Serwera: z 16 GB do 250 MB)"]
+        Neo4j["Neo4j 5 GDS (Topologia QID, PageRank, Louvain, LIMIT 2000 Safety Valve)"]
+        SQLite["SQLite FTS5 WAL (Indeks Pełnotekstowy BM25, Infoboksy JSON, Metrics KV)"]
     end
 
-    subgraph Storage["Storage Layer (Polyglot Split-Storage)"]
-        subgraph Neo4j_Engine["Neo4j 5 Community + GDS (Topology Only)"]
-            Topology["Graph Topology: (:Concept {qid}) -[:LINKS_TO]-> (:Concept {qid})"]
-            GDS_Projections["In-Memory GDS Projections (similarity-graph)"]
-            SafetyValve["Cartesian Safety Valve (LIMIT 2000 Common Neighbors)"]
-        end
-
-        subgraph SQLite_Engine["SQLite 3.37+ (Metadata & Search)"]
-            FTS5["SQLite FTS5 Full-Text Index (articles_fts: title, qid UNINDEXED)"]
-            MetaDB["Relational Metadata: pages, link_targets, id_mapping"]
-            MetricsKV["Materialized Metrics Table (node_metrics Key-Value)"]
-        end
+    subgraph Backend_Bridge["3. Asynchroniczny Most Federacyjny (FastAPI Bridge)"]
+        Router["FastAPI Async Router & Dependency Injection"]
+        QueuePool["SQLAlchemy QueuePool (check_same_thread=False via run_in_executor)"]
+        GDS_Stream["Procedura C++ gds.nodeSimilarity.filtered.stream (<1s dla 1.67M Węzłów)"]
+        AI_Strat["AIService Strategy (Gemini 2.5 Flash + Dossier Grounding + Mock Fallback)"]
     end
 
-    Client <-->|RESTful JSON / HTTP| Router
-    GDS_Bridge <-->|Bolt Protocol (7687, 7688...)| Neo4j_Engine
-    Pool <-->|run_in_executor (WAL Mode)| SQLite_Engine
+    subgraph Client_3D["4. Prezentacja 3D & Grafika WebGL (Next.js 15 + Three.js)"]
+        Spiral["Phyllotaxis Spiral Placement (Złoty Kąt θ = i * 137.5°)"]
+        D3Force["D3 Physical Forces (Dedykowana Siła lang_cluster)"]
+        Spotlight["System Spotlight Masking sąsiedztwa w useMemo + Cubic Camera Easing"]
+    end
+
+    Dumps --> SchemaFix & ASTParser --> AdminImport
+    AdminImport --> Neo4j & SQLite
+    Neo4j & SQLite --> QueuePool & GDS_Stream --> Router
+    Router <--> AI_Strat
+    Router <--> Spiral & D3Force & Spotlight
 ```
 
 ### Architectural Principles
